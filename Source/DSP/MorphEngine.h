@@ -22,12 +22,23 @@ public:
 
     void setDrive(float newDrive);
     void setMix(float newMix);
-    void setShape(float newShape);
+
+    void setVectorPosition(float newX, float newY);
 
     void process(juce::AudioBuffer<float>& buffer);
 
 private:
+    struct MorphWeights
+    {
+        float tube = 0.0f;
+        float hardClip = 0.0f;
+        float foldback = 0.0f;
+        float fuzz = 0.0f;
+        float ampDrive = 0.0f;
+    };
+
     void updateAlgorithmParameters(float currentDrive);
+    MorphWeights calculateWeights(float x, float y) const;
 
     TubeAlgorithm tube;
     HardClipAlgorithm hardClip;
@@ -39,7 +50,8 @@ private:
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> outputGainDb;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> drive;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> mix;
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> shape;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> vectorX;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> vectorY;
 
     double currentSampleRate = 44100.0;
 };
