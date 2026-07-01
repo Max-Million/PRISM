@@ -51,6 +51,9 @@ private:
 
     juce::ToggleButton bypassButton;
 
+    juce::ComboBox presetBox;
+    juce::Label presetLabel;
+
     juce::ComboBox outputModeBox;
     juce::Label outputModeLabel;
 
@@ -96,9 +99,16 @@ private:
     void configureLabel(juce::Label& label, const juce::String& text);
     void configureBypassButton();
 
+    void configurePresetBox();
     void configureOutputModeBox();
     void configureAlgorithmBox(juce::ComboBox& box);
     void configureCornerLabel(juce::Label& label, const juce::String& text);
+
+    void applyFactoryPreset(int presetIndex);
+
+    void layoutSmallSelector(juce::Rectangle<int> area,
+        juce::Label& label,
+        juce::ComboBox& box);
 
     void layoutCornerSelector(juce::Rectangle<int> area,
         juce::Label& label,

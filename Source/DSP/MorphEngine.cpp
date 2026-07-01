@@ -255,6 +255,11 @@ void MorphEngine::processAudioBlock(juce::dsp::AudioBlock<float>& block)
 
         auto processWetOnly = [&](float cleanInput)
             {
+                // True digital silence should produce true digital silence.
+                // This prevents biased/asymmetric algorithms from creating tiny startup or selection pops.
+                if (std::abs(cleanInput) < 1.0e-8f)
+                    return 0.0f;
+
                 const float dry = cleanInput * inputGain;
 
                 const std::array<float, numAlgorithms> outputs
