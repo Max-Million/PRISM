@@ -43,6 +43,10 @@ target_sources(Morph
         Source/DSP/Algorithms/DistortionAlgorithm.h
         Source/DSP/Algorithms/TubeAlgorithm.cpp
         Source/DSP/Algorithms/TubeAlgorithm.h
+        Source/DSP/Algorithms/HardClipAlgorithm.cpp
+        Source/DSP/Algorithms/HardClipAlgorithm.h
+        Source/DSP/Algorithms/FoldbackAlgorithm.cpp
+        Source/DSP/Algorithms/FoldbackAlgorithm.h
 )
 
 target_compile_definitions(Morph
