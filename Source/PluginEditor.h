@@ -52,6 +52,12 @@ private:
     juce::ToggleButton bypassButton;
     juce::TextButton randomizeButton;
 
+    juce::TextButton driveLockButton;
+    juce::TextButton toneLockButton;
+    juce::TextButton mixLockButton;
+    juce::TextButton vectorLockButton;
+    juce::TextButton cornersLockButton;
+
     juce::ComboBox presetBox;
     juce::Label presetLabel;
 
@@ -103,6 +109,7 @@ private:
     void configureLabel(juce::Label& label, const juce::String& text);
     void configureBypassButton();
     void configureRandomizeButton();
+    void configureLockButton(juce::TextButton& button, const juce::String& text);
 
     void configurePresetBox();
     void configureOutputModeBox();
