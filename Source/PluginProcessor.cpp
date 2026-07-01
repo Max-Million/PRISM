@@ -13,6 +13,7 @@ MorphAudioProcessor::MorphAudioProcessor()
 void MorphAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
     engine.prepare(sampleRate, samplesPerBlock, getTotalNumOutputChannels());
+    setLatencySamples(engine.getLatencySamples());
 }
 
 void MorphAudioProcessor::releaseResources()

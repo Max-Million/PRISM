@@ -13,21 +13,34 @@ namespace
 void MorphEngine::prepare(double sampleRate, int samplesPerBlock, int numChannels)
 {
     currentSampleRate = sampleRate > 0.0 ? sampleRate : 44100.0;
+    currentNumChannels = juce::jmax(1, numChannels);
 
-    tube.prepare(sampleRate, samplesPerBlock, numChannels);
-    hardClip.prepare(sampleRate, samplesPerBlock, numChannels);
-    foldback.prepare(sampleRate, samplesPerBlock, numChannels);
-    fuzz.prepare(sampleRate, samplesPerBlock, numChannels);
-    ampDrive.prepare(sampleRate, samplesPerBlock, numChannels);
+    oversampler = std::make_unique<juce::dsp::Oversampling<float>>(
+        static_cast<size_t> (currentNumChannels),
+        static_cast<size_t> (oversamplingExponent),
+        juce::dsp::Oversampling<float>::filterHalfBandPolyphaseIIR,
+        true,
+        true);
 
-    inputGainDb.reset(currentSampleRate, 0.03);
-    outputGainDb.reset(currentSampleRate, 0.03);
-    drive.reset(currentSampleRate, 0.06);
-    mix.reset(currentSampleRate, 0.03);
+    oversampler->initProcessing(static_cast<size_t> (juce::jmax(1, samplesPerBlock)));
+    oversampler->reset();
 
-    // Vector movement changes the whole nonlinear blend, so keep this smooth.
-    vectorX.reset(currentSampleRate, 0.12);
-    vectorY.reset(currentSampleRate, 0.12);
+    effectiveSampleRate = currentSampleRate
+        * static_cast<double> (oversampler->getOversamplingFactor());
+
+    tube.prepare(effectiveSampleRate, samplesPerBlock * 2, currentNumChannels);
+    hardClip.prepare(effectiveSampleRate, samplesPerBlock * 2, currentNumChannels);
+    foldback.prepare(effectiveSampleRate, samplesPerBlock * 2, currentNumChannels);
+    fuzz.prepare(effectiveSampleRate, samplesPerBlock * 2, currentNumChannels);
+    ampDrive.prepare(effectiveSampleRate, samplesPerBlock * 2, currentNumChannels);
+
+    inputGainDb.reset(effectiveSampleRate, 0.03);
+    outputGainDb.reset(effectiveSampleRate, 0.03);
+    drive.reset(effectiveSampleRate, 0.06);
+    mix.reset(effectiveSampleRate, 0.03);
+
+    vectorX.reset(effectiveSampleRate, 0.12);
+    vectorY.reset(effectiveSampleRate, 0.12);
 
     inputGainDb.setCurrentAndTargetValue(0.0f);
     outputGainDb.setCurrentAndTargetValue(-6.0f);
@@ -47,12 +60,23 @@ void MorphEngine::reset()
     fuzz.reset();
     ampDrive.reset();
 
+    if (oversampler != nullptr)
+        oversampler->reset();
+
     inputGainDb.setCurrentAndTargetValue(inputGainDb.getTargetValue());
     outputGainDb.setCurrentAndTargetValue(outputGainDb.getTargetValue());
     drive.setCurrentAndTargetValue(drive.getTargetValue());
     mix.setCurrentAndTargetValue(mix.getTargetValue());
     vectorX.setCurrentAndTargetValue(vectorX.getTargetValue());
     vectorY.setCurrentAndTargetValue(vectorY.getTargetValue());
+}
+
+int MorphEngine::getLatencySamples() const
+{
+    if (oversampler == nullptr)
+        return 0;
+
+    return static_cast<int> (std::ceil(oversampler->getLatencyInSamples()));
 }
 
 void MorphEngine::setInputGainDb(float newInputGainDb)
@@ -103,21 +127,21 @@ MorphEngine::MorphWeights MorphEngine::calculateWeights(float x, float y) const
 
     MorphWeights weights;
 
-    // Corner influence.
     weights.tube = (1.0f - x) * (1.0f - y);
     weights.hardClip = x * (1.0f - y);
     weights.foldback = (1.0f - x) * y;
     weights.fuzz = x * y;
 
-    // Center influence for Amp Drive.
     const float dx = x - 0.5f;
     const float dy = y - 0.5f;
     const float distanceFromCenter = std::sqrt(dx * dx + dy * dy);
     const float maxDistance = 0.70710678f;
 
-    const float centerAmount = juce::jlimit(0.0f, 1.0f, 1.0f - distanceFromCenter / maxDistance);
+    const float centerAmount = juce::jlimit(
+        0.0f,
+        1.0f,
+        1.0f - distanceFromCenter / maxDistance);
 
-    // Squared falloff makes the centre feel focused rather than always present.
     weights.ampDrive = centerAmount * centerAmount * 1.35f;
 
     const float total = weights.tube
@@ -136,9 +160,12 @@ MorphEngine::MorphWeights MorphEngine::calculateWeights(float x, float y) const
     return weights;
 }
 
-void MorphEngine::process(juce::AudioBuffer<float>& buffer)
+void MorphEngine::processAudioBlock(juce::dsp::AudioBlock<float>& block)
 {
-    for (int i = 0; i < buffer.getNumSamples(); ++i)
+    const auto numChannels = block.getNumChannels();
+    const auto numSamples = block.getNumSamples();
+
+    for (size_t i = 0; i < numSamples; ++i)
     {
         const float currentInputGainDb = inputGainDb.getNextValue();
         const float currentOutputGainDb = outputGainDb.getNextValue();
@@ -154,9 +181,9 @@ void MorphEngine::process(juce::AudioBuffer<float>& buffer)
         const float inputGain = juce::Decibels::decibelsToGain(currentInputGainDb);
         const float outputGain = juce::Decibels::decibelsToGain(currentOutputGainDb);
 
-        for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+        for (size_t ch = 0; ch < numChannels; ++ch)
         {
-            auto* samples = buffer.getWritePointer(ch);
+            auto* samples = block.getChannelPointer(ch);
 
             const float dry = samples[i] * inputGain;
 
@@ -176,4 +203,22 @@ void MorphEngine::process(juce::AudioBuffer<float>& buffer)
             samples[i] = safeClip(dry + currentMix * (algorithmWet - dry)) * outputGain;
         }
     }
+}
+
+void MorphEngine::process(juce::AudioBuffer<float>& buffer)
+{
+    if (oversampler == nullptr)
+    {
+        juce::dsp::AudioBlock<float> fallbackBlock(buffer);
+        processAudioBlock(fallbackBlock);
+        return;
+    }
+
+    juce::dsp::AudioBlock<float> inputBlock(buffer);
+
+    auto oversampledBlock = oversampler->processSamplesUp(inputBlock);
+
+    processAudioBlock(oversampledBlock);
+
+    oversampler->processSamplesDown(inputBlock);
 }

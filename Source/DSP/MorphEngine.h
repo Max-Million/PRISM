@@ -17,6 +17,8 @@ public:
     void prepare(double sampleRate, int samplesPerBlock, int numChannels);
     void reset();
 
+    int getLatencySamples() const;
+
     void setInputGainDb(float newInputGainDb);
     void setOutputGainDb(float newOutputGainDb);
 
@@ -40,11 +42,15 @@ private:
     void updateAlgorithmParameters(float currentDrive);
     MorphWeights calculateWeights(float x, float y) const;
 
+    void processAudioBlock(juce::dsp::AudioBlock<float>& block);
+
     TubeAlgorithm tube;
     HardClipAlgorithm hardClip;
     FoldbackAlgorithm foldback;
     FuzzAlgorithm fuzz;
     DriveAlgorithm ampDrive;
+
+    std::unique_ptr<juce::dsp::Oversampling<float>> oversampler;
 
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> inputGainDb;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> outputGainDb;
@@ -54,4 +60,9 @@ private:
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> vectorY;
 
     double currentSampleRate = 44100.0;
+    double effectiveSampleRate = 88200.0;
+
+    int currentNumChannels = 2;
+
+    static constexpr int oversamplingExponent = 1; // 2x oversampling
 };
