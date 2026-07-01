@@ -47,6 +47,10 @@ target_sources(Morph
         Source/DSP/Algorithms/HardClipAlgorithm.h
         Source/DSP/Algorithms/FoldbackAlgorithm.cpp
         Source/DSP/Algorithms/FoldbackAlgorithm.h
+        Source/DSP/Algorithms/FuzzAlgorithm.cpp
+        Source/DSP/Algorithms/FuzzAlgorithm.h
+        Source/DSP/Algorithms/DriveAlgorithm.cpp
+        Source/DSP/Algorithms/DriveAlgorithm.h
 )
 
 target_compile_definitions(Morph

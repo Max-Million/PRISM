@@ -1,15 +1,23 @@
 #include "MorphEngine.h"
 
+#include <array>
+
 namespace
 {
-    float blendLinear(float a, float b, float t)
-    {
-        return a + (b - a) * t;
-    }
-
     float safeClip(float x)
     {
         return juce::jlimit(-1.0f, 1.0f, x);
+    }
+
+    float equalPowerBlend(float a, float b, float t)
+    {
+        const float clampedT = juce::jlimit(0.0f, 1.0f, t);
+
+        const float angle = clampedT * juce::MathConstants<float>::halfPi;
+        const float gainA = std::cos(angle);
+        const float gainB = std::sin(angle);
+
+        return a * gainA + b * gainB;
     }
 }
 
@@ -20,12 +28,16 @@ void MorphEngine::prepare(double sampleRate, int samplesPerBlock, int numChannel
     tube.prepare(sampleRate, samplesPerBlock, numChannels);
     hardClip.prepare(sampleRate, samplesPerBlock, numChannels);
     foldback.prepare(sampleRate, samplesPerBlock, numChannels);
+    fuzz.prepare(sampleRate, samplesPerBlock, numChannels);
+    ampDrive.prepare(sampleRate, samplesPerBlock, numChannels);
 
-    inputGainDb.reset(currentSampleRate, 0.02);
-    outputGainDb.reset(currentSampleRate, 0.02);
-    drive.reset(currentSampleRate, 0.035);
-    mix.reset(currentSampleRate, 0.02);
-    shape.reset(currentSampleRate, 0.04);
+    inputGainDb.reset(currentSampleRate, 0.03);
+    outputGainDb.reset(currentSampleRate, 0.03);
+    drive.reset(currentSampleRate, 0.06);
+    mix.reset(currentSampleRate, 0.03);
+
+    // Tone / Shape changes nonlinear character, so it needs a longer smoothing time.
+    shape.reset(currentSampleRate, 0.18);
 
     inputGainDb.setCurrentAndTargetValue(0.0f);
     outputGainDb.setCurrentAndTargetValue(-6.0f);
@@ -41,6 +53,8 @@ void MorphEngine::reset()
     tube.reset();
     hardClip.reset();
     foldback.reset();
+    fuzz.reset();
+    ampDrive.reset();
 
     inputGainDb.setCurrentAndTargetValue(inputGainDb.getTargetValue());
     outputGainDb.setCurrentAndTargetValue(outputGainDb.getTargetValue());
@@ -74,53 +88,64 @@ void MorphEngine::setShape(float newShape)
     shape.setTargetValue(juce::jlimit(0.0f, 1.0f, newShape));
 }
 
-void MorphEngine::updateAlgorithmParameters(float currentDrive, float currentShape)
+void MorphEngine::updateAlgorithmParameters(float currentDrive)
 {
     tube.setDrive(currentDrive);
     hardClip.setDrive(currentDrive);
     foldback.setDrive(currentDrive);
+    fuzz.setDrive(currentDrive * 1.15f);
+    ampDrive.setDrive(currentDrive);
 
-    hardClip.setKnee(0.18f - 0.12f * currentShape);
-    foldback.setFoldAmount(0.75f + 2.5f * currentShape);
+    // Keep these stable while Tone moves.
+    // This prevents crackles caused by modulating gate/fold/knee values during playback.
+    hardClip.setKnee(0.08f);
+    foldback.setFoldAmount(2.0f);
+    fuzz.setBias(0.16f);
+    fuzz.setGate(0.012f);
+    ampDrive.setWarmth(0.75f);
 }
 
 void MorphEngine::process(juce::AudioBuffer<float>& buffer)
 {
-    for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+    for (int i = 0; i < buffer.getNumSamples(); ++i)
     {
-        auto* samples = buffer.getWritePointer(ch);
+        const float currentInputGainDb = inputGainDb.getNextValue();
+        const float currentOutputGainDb = outputGainDb.getNextValue();
+        const float currentDrive = drive.getNextValue();
+        const float currentMix = mix.getNextValue();
+        const float currentShape = shape.getNextValue();
 
-        for (int i = 0; i < buffer.getNumSamples(); ++i)
+        updateAlgorithmParameters(currentDrive);
+
+        const float inputGain = juce::Decibels::decibelsToGain(currentInputGainDb);
+        const float outputGain = juce::Decibels::decibelsToGain(currentOutputGainDb);
+
+        for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
         {
-            const float currentInputGainDb = inputGainDb.getNextValue();
-            const float currentOutputGainDb = outputGainDb.getNextValue();
-            const float currentDrive = drive.getNextValue();
-            const float currentMix = mix.getNextValue();
-            const float currentShape = shape.getNextValue();
-
-            updateAlgorithmParameters(currentDrive, currentShape);
-
-            const float inputGain = juce::Decibels::decibelsToGain(currentInputGainDb);
-            const float outputGain = juce::Decibels::decibelsToGain(currentOutputGainDb);
+            auto* samples = buffer.getWritePointer(ch);
 
             const float dry = samples[i] * inputGain;
 
             const float tubeOut = tube.processSample(dry) * 0.78f;
-            const float clipOut = hardClip.processSample(dry) * 0.58f;
-            const float foldOut = foldback.processSample(dry) * 0.42f;
+            const float clipOut = hardClip.processSample(dry) * 0.52f;
+            const float foldOut = foldback.processSample(dry) * 0.34f;
+            const float fuzzOut = fuzz.processSample(dry) * 0.42f;
+            const float driveOut = ampDrive.processSample(dry) * 0.64f;
+
+            const float scaledShape = currentShape * 4.0f;
+            const int segment = juce::jlimit(0, 3, static_cast<int> (scaledShape));
+            const float localT = scaledShape - static_cast<float> (segment);
 
             float algorithmWet = tubeOut;
 
-            if (currentShape < 0.5f)
-            {
-                const float localT = currentShape * 2.0f;
-                algorithmWet = blendLinear(tubeOut, clipOut, localT);
-            }
+            if (segment == 0)
+                algorithmWet = equalPowerBlend(tubeOut, clipOut, localT);
+            else if (segment == 1)
+                algorithmWet = equalPowerBlend(clipOut, foldOut, localT);
+            else if (segment == 2)
+                algorithmWet = equalPowerBlend(foldOut, fuzzOut, localT);
             else
-            {
-                const float localT = (currentShape - 0.5f) * 2.0f;
-                algorithmWet = blendLinear(clipOut, foldOut, localT);
-            }
+                algorithmWet = equalPowerBlend(fuzzOut, driveOut, localT);
 
             samples[i] = safeClip(dry + currentMix * (algorithmWet - dry)) * outputGain;
         }

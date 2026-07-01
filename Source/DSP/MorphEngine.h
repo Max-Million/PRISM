@@ -5,6 +5,8 @@
 #include "Algorithms/TubeAlgorithm.h"
 #include "Algorithms/HardClipAlgorithm.h"
 #include "Algorithms/FoldbackAlgorithm.h"
+#include "Algorithms/FuzzAlgorithm.h"
+#include "Algorithms/DriveAlgorithm.h"
 
 class MorphEngine
 {
@@ -25,11 +27,13 @@ public:
     void process(juce::AudioBuffer<float>& buffer);
 
 private:
-    void updateAlgorithmParameters(float currentDrive, float currentShape);
+    void updateAlgorithmParameters(float currentDrive);
 
     TubeAlgorithm tube;
     HardClipAlgorithm hardClip;
     FoldbackAlgorithm foldback;
+    FuzzAlgorithm fuzz;
+    DriveAlgorithm ampDrive;
 
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> inputGainDb;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> outputGainDb;
