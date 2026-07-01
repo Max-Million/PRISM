@@ -46,6 +46,10 @@ void MorphAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     const auto* mixParam = apvts.getRawParameterValue(ParamID::mix);
     const auto* vectorXParam = apvts.getRawParameterValue(ParamID::vectorX);
     const auto* vectorYParam = apvts.getRawParameterValue(ParamID::vectorY);
+    const auto* topLeftAlgorithmParam = apvts.getRawParameterValue(ParamID::topLeftAlgorithm);
+    const auto* topRightAlgorithmParam = apvts.getRawParameterValue(ParamID::topRightAlgorithm);
+    const auto* bottomLeftAlgorithmParam = apvts.getRawParameterValue(ParamID::bottomLeftAlgorithm);
+    const auto* bottomRightAlgorithmParam = apvts.getRawParameterValue(ParamID::bottomRightAlgorithm);
 
     const bool bypassed = bypassParam != nullptr && bypassParam->load() >= 0.5f;
     const float inputGainDb = inputGainParam != nullptr ? inputGainParam->load() : 0.0f;
@@ -58,12 +62,32 @@ void MorphAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     const float vectorX = vectorXParam != nullptr ? vectorXParam->load() : 0.5f;
     const float vectorY = vectorYParam != nullptr ? vectorYParam->load() : 0.5f;
 
+    const int topLeftAlgorithm = topLeftAlgorithmParam != nullptr
+        ? static_cast<int> (topLeftAlgorithmParam->load())
+        : 0;
+
+    const int topRightAlgorithm = topRightAlgorithmParam != nullptr
+        ? static_cast<int> (topRightAlgorithmParam->load())
+        : 1;
+
+    const int bottomLeftAlgorithm = bottomLeftAlgorithmParam != nullptr
+        ? static_cast<int> (bottomLeftAlgorithmParam->load())
+        : 2;
+
+    const int bottomRightAlgorithm = bottomRightAlgorithmParam != nullptr
+        ? static_cast<int> (bottomRightAlgorithmParam->load())
+        : 3;
+
     engine.setBypassed(bypassed);
     engine.setInputGainDb(inputGainDb);
     engine.setOutputGainDb(outputGainDb);
     engine.setDrive(drive);
     engine.setMix(mix);
     engine.setVectorPosition(vectorX, vectorY);
+    engine.setCornerAlgorithms(topLeftAlgorithm,
+        topRightAlgorithm,
+        bottomLeftAlgorithm,
+        bottomRightAlgorithm);
 
     engine.process(buffer);
 }

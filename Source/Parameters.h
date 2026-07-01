@@ -11,11 +11,32 @@ namespace ParamID
     static constexpr auto vectorX = "vectorX";
     static constexpr auto vectorY = "vectorY";
     static constexpr auto bypass = "bypass";
+
+    static constexpr auto topLeftAlgorithm = "topLeftAlgorithm";
+    static constexpr auto topRightAlgorithm = "topRightAlgorithm";
+    static constexpr auto bottomLeftAlgorithm = "bottomLeftAlgorithm";
+    static constexpr auto bottomRightAlgorithm = "bottomRightAlgorithm";
+}
+
+inline juce::StringArray getAlgorithmChoices()
+{
+    return {
+        "Tube",
+        "Hard Clip",
+        "Foldback",
+        "Fuzz",
+        "Amp Drive",
+        "Bitcrush",
+        "Wavefolder",
+        "Rectifier"
+    };
 }
 
 inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
+
+    const auto algorithmChoices = getAlgorithmChoices();
 
     params.push_back(std::make_unique<juce::AudioParameterBool>(
         ParamID::bypass,
@@ -57,6 +78,30 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout
         "Vector Y",
         juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f),
         0.5f));
+
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        ParamID::topLeftAlgorithm,
+        "Top Left Algorithm",
+        algorithmChoices,
+        0)); // Tube
+
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        ParamID::topRightAlgorithm,
+        "Top Right Algorithm",
+        algorithmChoices,
+        1)); // Hard Clip
+
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        ParamID::bottomLeftAlgorithm,
+        "Bottom Left Algorithm",
+        algorithmChoices,
+        2)); // Foldback
+
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        ParamID::bottomRightAlgorithm,
+        "Bottom Right Algorithm",
+        algorithmChoices,
+        3)); // Fuzz
 
     return { params.begin(), params.end() };
 }

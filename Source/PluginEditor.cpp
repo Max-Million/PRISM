@@ -8,11 +8,31 @@ namespace
         return bounds.reduced(22).toFloat();
     }
 
-    void drawNode(juce::Graphics& g,
+    int getChoiceIndexFromParameter(MorphAudioProcessor& processor,
+        const juce::String& parameterID)
+    {
+        const auto* value = processor.apvts.getRawParameterValue(parameterID);
+
+        if (value == nullptr)
+            return 0;
+
+        return juce::jlimit(0, getAlgorithmChoices().size() - 1,
+            static_cast<int> (std::round(value->load())));
+    }
+
+    void addAlgorithmChoicesToBox(juce::ComboBox& box)
+    {
+        const auto choices = getAlgorithmChoices();
+
+        for (int i = 0; i < choices.size(); ++i)
+            box.addItem(choices[i], i + 1);
+    }
+
+    void drawCornerNode(juce::Graphics& g,
         juce::Rectangle<float> pad,
         juce::Point<float> normalisedPosition,
-        const juce::String& title,
-        const juce::String& subtitle)
+        const juce::String& cornerName,
+        const juce::String& algorithmName)
     {
         const auto pos = juce::Point<float>(
             pad.getX() + normalisedPosition.x * pad.getWidth(),
@@ -21,23 +41,27 @@ namespace
         g.setColour(juce::Colour::fromRGB(150, 125, 255).withAlpha(0.92f));
         g.fillEllipse(pos.x - 7.0f, pos.y - 7.0f, 14.0f, 14.0f);
 
-        g.setColour(juce::Colours::white.withAlpha(0.9f));
-        g.setFont(juce::FontOptions(13.0f, juce::Font::bold));
+        juce::Rectangle<float> titleArea;
+        juce::Rectangle<float> subtitleArea;
 
-        juce::Rectangle<float> titleArea(pos.x - 58.0f, pos.y - 36.0f, 116.0f, 18.0f);
-        juce::Rectangle<float> subtitleArea(pos.x - 58.0f, pos.y - 19.0f, 116.0f, 16.0f);
-
-        if (normalisedPosition.y > 0.5f)
+        if (normalisedPosition.y < 0.5f)
         {
-            titleArea.setY(pos.y + 10.0f);
-            subtitleArea.setY(pos.y + 27.0f);
+            titleArea = { pos.x - 70.0f, pos.y + 12.0f, 140.0f, 18.0f };
+            subtitleArea = { pos.x - 70.0f, pos.y + 29.0f, 140.0f, 16.0f };
+        }
+        else
+        {
+            titleArea = { pos.x - 70.0f, pos.y - 45.0f, 140.0f, 18.0f };
+            subtitleArea = { pos.x - 70.0f, pos.y - 28.0f, 140.0f, 16.0f };
         }
 
-        g.drawText(title, titleArea, juce::Justification::centred);
+        g.setColour(juce::Colours::white.withAlpha(0.72f));
+        g.setFont(juce::FontOptions(11.0f, juce::Font::bold));
+        g.drawText(cornerName, titleArea, juce::Justification::centred);
 
-        g.setColour(juce::Colours::white.withAlpha(0.52f));
-        g.setFont(11.0f);
-        g.drawText(subtitle, subtitleArea, juce::Justification::centred);
+        g.setColour(juce::Colours::white.withAlpha(0.92f));
+        g.setFont(juce::FontOptions(13.0f, juce::Font::bold));
+        g.drawText(algorithmName, subtitleArea, juce::Justification::centred);
     }
 }
 
@@ -48,6 +72,17 @@ VectorPadComponent::VectorPadComponent(MorphAudioProcessor& processorToUse)
     vectorYParam = processor.apvts.getParameter(ParamID::vectorY);
 
     startTimerHz(30);
+}
+
+juce::String VectorPadComponent::getCornerAlgorithmName(const juce::String& parameterID) const
+{
+    const auto choices = getAlgorithmChoices();
+    const int index = getChoiceIndexFromParameter(processor, parameterID);
+
+    if (juce::isPositiveAndBelow(index, choices.size()))
+        return choices[index];
+
+    return "Unknown";
 }
 
 void VectorPadComponent::paint(juce::Graphics& g)
@@ -83,15 +118,40 @@ void VectorPadComponent::paint(juce::Graphics& g)
     g.drawLine(pad.getX(), pad.getCentreY(), pad.getRight(), pad.getCentreY(), 1.2f);
     g.drawLine(pad.getCentreX(), pad.getY(), pad.getCentreX(), pad.getBottom(), 1.2f);
 
-    drawNode(g, pad, { 0.0f, 0.0f }, "TUBE", "warm");
-    drawNode(g, pad, { 1.0f, 0.0f }, "CLIP", "hard");
-    drawNode(g, pad, { 0.0f, 1.0f }, "FOLD", "foldback");
-    drawNode(g, pad, { 1.0f, 1.0f }, "FUZZ", "gated");
-    drawNode(g, pad, { 0.5f, 0.5f }, "DRIVE", "amp");
+    const auto centre = pad.getCentre();
+
+    g.setColour(juce::Colours::white.withAlpha(0.06f));
+    g.drawLine(pad.getX(), pad.getY(), pad.getRight(), pad.getBottom(), 1.0f);
+    g.drawLine(pad.getRight(), pad.getY(), pad.getX(), pad.getBottom(), 1.0f);
+
+    drawCornerNode(g, pad, { 0.0f, 0.0f },
+        "TOP LEFT",
+        getCornerAlgorithmName(ParamID::topLeftAlgorithm));
+
+    drawCornerNode(g, pad, { 1.0f, 0.0f },
+        "TOP RIGHT",
+        getCornerAlgorithmName(ParamID::topRightAlgorithm));
+
+    drawCornerNode(g, pad, { 0.0f, 1.0f },
+        "BOTTOM LEFT",
+        getCornerAlgorithmName(ParamID::bottomLeftAlgorithm));
+
+    drawCornerNode(g, pad, { 1.0f, 1.0f },
+        "BOTTOM RIGHT",
+        getCornerAlgorithmName(ParamID::bottomRightAlgorithm));
+
+    g.setColour(juce::Colour::fromRGB(150, 125, 255).withAlpha(0.28f));
+    g.fillEllipse(centre.x - 15.0f, centre.y - 15.0f, 30.0f, 30.0f);
+
+    g.setColour(juce::Colours::white.withAlpha(0.58f));
+    g.setFont(juce::FontOptions(12.0f, juce::Font::bold));
+    g.drawText("CENTER MIX",
+        juce::Rectangle<float>(centre.x - 60.0f, centre.y + 18.0f, 120.0f, 18.0f),
+        juce::Justification::centred);
 
     const auto puck = getCurrentPuckPosition();
 
-    g.setColour(juce::Colour::fromRGB(180, 150, 255).withAlpha(0.2f));
+    g.setColour(juce::Colour::fromRGB(180, 150, 255).withAlpha(0.20f));
     g.fillEllipse(puck.x - 25.0f, puck.y - 25.0f, 50.0f, 50.0f);
 
     g.setColour(juce::Colour::fromRGB(210, 195, 255).withAlpha(0.95f));
@@ -165,7 +225,7 @@ MorphAudioProcessorEditor::MorphAudioProcessorEditor(MorphAudioProcessor& p)
     processor(p),
     vectorPad(p)
 {
-    setSize(740, 520);
+    setSize(820, 640);
     setResizable(true, true);
 
     titleLabel.setText("PRISM", juce::dontSendNotification);
@@ -174,7 +234,7 @@ MorphAudioProcessorEditor::MorphAudioProcessorEditor(MorphAudioProcessor& p)
     titleLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     addAndMakeVisible(titleLabel);
 
-    subtitleLabel.setText("vector distortion", juce::dontSendNotification);
+    subtitleLabel.setText("assignable vector distortion", juce::dontSendNotification);
     subtitleLabel.setJustificationType(juce::Justification::centred);
     subtitleLabel.setFont(13.0f);
     subtitleLabel.setColour(juce::Label::textColourId,
@@ -182,6 +242,16 @@ MorphAudioProcessorEditor::MorphAudioProcessorEditor(MorphAudioProcessor& p)
     addAndMakeVisible(subtitleLabel);
 
     configureBypassButton();
+
+    configureAlgorithmBox(topLeftBox);
+    configureAlgorithmBox(topRightBox);
+    configureAlgorithmBox(bottomLeftBox);
+    configureAlgorithmBox(bottomRightBox);
+
+    configureCornerLabel(topLeftLabel, "TOP LEFT");
+    configureCornerLabel(topRightLabel, "TOP RIGHT");
+    configureCornerLabel(bottomLeftLabel, "BOTTOM LEFT");
+    configureCornerLabel(bottomRightLabel, "BOTTOM RIGHT");
 
     addAndMakeVisible(vectorPad);
 
@@ -209,6 +279,18 @@ MorphAudioProcessorEditor::MorphAudioProcessorEditor(MorphAudioProcessor& p)
 
     bypassAttachment = std::make_unique<ButtonAttachment>(
         processor.apvts, ParamID::bypass, bypassButton);
+
+    topLeftAttachment = std::make_unique<ComboBoxAttachment>(
+        processor.apvts, ParamID::topLeftAlgorithm, topLeftBox);
+
+    topRightAttachment = std::make_unique<ComboBoxAttachment>(
+        processor.apvts, ParamID::topRightAlgorithm, topRightBox);
+
+    bottomLeftAttachment = std::make_unique<ComboBoxAttachment>(
+        processor.apvts, ParamID::bottomLeftAlgorithm, bottomLeftBox);
+
+    bottomRightAttachment = std::make_unique<ComboBoxAttachment>(
+        processor.apvts, ParamID::bottomRightAlgorithm, bottomRightBox);
 }
 
 void MorphAudioProcessorEditor::configureSlider(juce::Slider& slider)
@@ -263,6 +345,52 @@ void MorphAudioProcessorEditor::configureBypassButton()
     addAndMakeVisible(bypassButton);
 }
 
+void MorphAudioProcessorEditor::configureAlgorithmBox(juce::ComboBox& box)
+{
+    addAlgorithmChoicesToBox(box);
+
+    box.setColour(juce::ComboBox::backgroundColourId,
+        juce::Colour::fromRGB(28, 28, 38));
+
+    box.setColour(juce::ComboBox::outlineColourId,
+        juce::Colour::fromRGB(80, 70, 120));
+
+    box.setColour(juce::ComboBox::textColourId,
+        juce::Colours::white.withAlpha(0.88f));
+
+    box.setColour(juce::ComboBox::arrowColourId,
+        juce::Colour::fromRGB(210, 195, 255));
+
+    box.onChange = [this]
+        {
+            vectorPad.repaint();
+        };
+
+    addAndMakeVisible(box);
+}
+
+void MorphAudioProcessorEditor::configureCornerLabel(juce::Label& label,
+    const juce::String& text)
+{
+    label.setText(text, juce::dontSendNotification);
+    label.setJustificationType(juce::Justification::centred);
+    label.setFont(juce::FontOptions(12.0f, juce::Font::bold));
+    label.setColour(juce::Label::textColourId,
+        juce::Colours::white.withAlpha(0.62f));
+
+    addAndMakeVisible(label);
+}
+
+void MorphAudioProcessorEditor::layoutCornerSelector(juce::Rectangle<int> area,
+    juce::Label& label,
+    juce::ComboBox& box)
+{
+    area = area.reduced(6);
+
+    label.setBounds(area.removeFromTop(20));
+    box.setBounds(area.removeFromTop(28));
+}
+
 void MorphAudioProcessorEditor::layoutControl(juce::Rectangle<int> area,
     juce::Slider& slider,
     juce::Label& label)
@@ -304,11 +432,21 @@ void MorphAudioProcessorEditor::resized()
 
     bounds.removeFromTop(8);
 
-    vectorPad.setBounds(bounds.removeFromTop(300));
+    auto selectorArea = bounds.removeFromTop(64);
+    const int selectorWidth = selectorArea.getWidth() / 4;
+
+    layoutCornerSelector(selectorArea.removeFromLeft(selectorWidth), topLeftLabel, topLeftBox);
+    layoutCornerSelector(selectorArea.removeFromLeft(selectorWidth), topRightLabel, topRightBox);
+    layoutCornerSelector(selectorArea.removeFromLeft(selectorWidth), bottomLeftLabel, bottomLeftBox);
+    layoutCornerSelector(selectorArea, bottomRightLabel, bottomRightBox);
 
     bounds.removeFromTop(8);
 
-    auto controls = bounds.removeFromBottom(120);
+    vectorPad.setBounds(bounds.removeFromTop(330));
+
+    bounds.removeFromTop(8);
+
+    auto controls = bounds.removeFromBottom(112);
 
     const int controlWidth = controls.getWidth() / 4;
 

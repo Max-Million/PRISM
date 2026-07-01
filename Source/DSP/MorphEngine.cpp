@@ -1,5 +1,6 @@
 #include "MorphEngine.h"
 
+#include <array>
 #include <cmath>
 
 namespace
@@ -52,6 +53,9 @@ void MorphEngine::prepare(double sampleRate, int samplesPerBlock, int numChannel
     foldback.prepare(effectiveSampleRate, samplesPerBlock * 2, currentNumChannels);
     fuzz.prepare(effectiveSampleRate, samplesPerBlock * 2, currentNumChannels);
     ampDrive.prepare(effectiveSampleRate, samplesPerBlock * 2, currentNumChannels);
+    bitcrush.prepare(effectiveSampleRate, samplesPerBlock * 2, currentNumChannels);
+    wavefolder.prepare(effectiveSampleRate, samplesPerBlock * 2, currentNumChannels);
+    rectifier.prepare(effectiveSampleRate, samplesPerBlock * 2, currentNumChannels);
 
     inputGainDb.reset(effectiveSampleRate, 0.03);
     outputGainDb.reset(effectiveSampleRate, 0.03);
@@ -80,6 +84,9 @@ void MorphEngine::reset()
     foldback.reset();
     fuzz.reset();
     ampDrive.reset();
+    bitcrush.reset();
+    wavefolder.reset();
+    rectifier.reset();
 
     if (oversampler != nullptr)
         oversampler->reset();
@@ -132,11 +139,21 @@ void MorphEngine::setVectorPosition(float newX, float newY)
     vectorY.setTargetValue(juce::jlimit(0.0f, 1.0f, newY));
 }
 
+void MorphEngine::setCornerAlgorithms(int newTopLeftAlgorithm,
+    int newTopRightAlgorithm,
+    int newBottomLeftAlgorithm,
+    int newBottomRightAlgorithm)
+{
+    topLeftAlgorithm = juce::jlimit(0, numAlgorithms - 1, newTopLeftAlgorithm);
+    topRightAlgorithm = juce::jlimit(0, numAlgorithms - 1, newTopRightAlgorithm);
+    bottomLeftAlgorithm = juce::jlimit(0, numAlgorithms - 1, newBottomLeftAlgorithm);
+    bottomRightAlgorithm = juce::jlimit(0, numAlgorithms - 1, newBottomRightAlgorithm);
+}
+
 void MorphEngine::updateAlgorithmParameters(float currentDrive)
 {
     tube.setDrive(currentDrive);
 
-    // Top-right: hard, squared-off clipping.
     hardClip.setDrive(currentDrive * 1.55f);
     hardClip.setKnee(0.015f);
 
@@ -147,10 +164,18 @@ void MorphEngine::updateAlgorithmParameters(float currentDrive)
     fuzz.setBias(0.16f);
     fuzz.setGate(0.012f);
 
-    // Center: amp-like drive with grit and edge.
-    // Smoother than Hard Clip, but not overly soft.
     ampDrive.setDrive(currentDrive * 0.95f);
     ampDrive.setWarmth(0.62f);
+
+    bitcrush.setDrive(currentDrive * 1.10f);
+    bitcrush.setCrushAmount(0.62f);
+
+    wavefolder.setDrive(currentDrive * 0.90f);
+    wavefolder.setFoldAmount(1.75f);
+    wavefolder.setSmoothness(0.78f);
+
+    rectifier.setDrive(currentDrive * 0.95f);
+    rectifier.setRectifyAmount(0.72f);
 }
 
 MorphEngine::MorphWeights MorphEngine::calculateWeights(float x, float y) const
@@ -160,46 +185,10 @@ MorphEngine::MorphWeights MorphEngine::calculateWeights(float x, float y) const
 
     MorphWeights weights;
 
-    const float cornerTube = (1.0f - x) * (1.0f - y);
-    const float cornerHardClip = x * (1.0f - y);
-    const float cornerFoldback = (1.0f - x) * y;
-    const float cornerFuzz = x * y;
-
-    const float dx = x - 0.5f;
-    const float dy = y - 0.5f;
-    const float distanceFromCenter = std::sqrt(dx * dx + dy * dy);
-    const float maxDistance = 0.70710678f;
-
-    const float centerRaw = juce::jlimit(
-        0.0f,
-        1.0f,
-        1.0f - distanceFromCenter / maxDistance);
-
-    // Focus the center node so Amp Drive has a clear identity.
-    const float centerAmount = centerRaw * centerRaw;
-
-    // Pull corner algorithms down near the center.
-    const float cornerScale = 1.0f - centerAmount * 0.90f;
-
-    weights.tube = cornerTube * cornerScale;
-    weights.hardClip = cornerHardClip * cornerScale;
-    weights.foldback = cornerFoldback * cornerScale;
-    weights.fuzz = cornerFuzz * cornerScale;
-
-    weights.ampDrive = centerAmount * 4.0f;
-
-    const float total = weights.tube
-        + weights.hardClip
-        + weights.foldback
-        + weights.fuzz
-        + weights.ampDrive
-        + 0.00001f;
-
-    weights.tube /= total;
-    weights.hardClip /= total;
-    weights.foldback /= total;
-    weights.fuzz /= total;
-    weights.ampDrive /= total;
+    weights.topLeft = (1.0f - x) * (1.0f - y);
+    weights.topRight = x * (1.0f - y);
+    weights.bottomLeft = (1.0f - x) * y;
+    weights.bottomRight = x * y;
 
     return weights;
 }
@@ -233,18 +222,23 @@ void MorphEngine::processAudioBlock(juce::dsp::AudioBlock<float>& block)
             const float cleanInput = samples[i];
             const float dry = cleanInput * inputGain;
 
-            const float tubeOut = tube.processSample(dry) * 0.78f;
-            const float clipOut = hardClip.processSample(dry) * 0.62f;
-            const float foldOut = foldback.processSample(dry) * 0.34f;
-            const float fuzzOut = fuzz.processSample(dry) * 0.42f;
-            const float driveOut = ampDrive.processSample(dry) * 0.76f;
+            const std::array<float, numAlgorithms> outputs
+            { {
+                tube.processSample(dry) * 0.72f,
+                hardClip.processSample(dry) * 0.60f,
+                foldback.processSample(dry) * 0.34f,
+                fuzz.processSample(dry) * 0.42f,
+                ampDrive.processSample(dry) * 0.74f,
+                bitcrush.processSample(dry) * 0.46f,
+                wavefolder.processSample(dry) * 0.48f,
+                rectifier.processSample(dry) * 0.44f
+            } };
 
             const float algorithmWet =
-                tubeOut * weights.tube
-                + clipOut * weights.hardClip
-                + foldOut * weights.foldback
-                + fuzzOut * weights.fuzz
-                + driveOut * weights.ampDrive;
+                outputs[static_cast<size_t> (topLeftAlgorithm)] * weights.topLeft
+                + outputs[static_cast<size_t> (topRightAlgorithm)] * weights.topRight
+                + outputs[static_cast<size_t> (bottomLeftAlgorithm)] * weights.bottomLeft
+                + outputs[static_cast<size_t> (bottomRightAlgorithm)] * weights.bottomRight;
 
             const float effected =
                 safetyLimit(safeClip(dry + currentMix * (algorithmWet - dry)) * outputGain);
