@@ -11,6 +11,7 @@ namespace ParamID
     static constexpr auto vectorX = "vectorX";
     static constexpr auto vectorY = "vectorY";
     static constexpr auto bypass = "bypass";
+    static constexpr auto outputMode = "outputMode";
 
     static constexpr auto topLeftAlgorithm = "topLeftAlgorithm";
     static constexpr auto topRightAlgorithm = "topRightAlgorithm";
@@ -32,16 +33,33 @@ inline juce::StringArray getAlgorithmChoices()
     };
 }
 
+inline juce::StringArray getOutputModeChoices()
+{
+    return {
+        "Stereo",
+        "Mono",
+        "Mid Only",
+        "Side Only"
+    };
+}
+
 inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
     const auto algorithmChoices = getAlgorithmChoices();
+    const auto outputModeChoices = getOutputModeChoices();
 
     params.push_back(std::make_unique<juce::AudioParameterBool>(
         ParamID::bypass,
         "Bypass",
         false));
+
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        ParamID::outputMode,
+        "Output Mode",
+        outputModeChoices,
+        0)); // Stereo
 
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         ParamID::inputGain,
