@@ -12,6 +12,7 @@ namespace
         float inputGainDb = 0.0f;
         float outputGainDb = -6.0f;
         float drive = 6.0f;
+        float tone = 50.0f;
         float mixPercent = 100.0f;
         float vectorX = 0.5f;
         float vectorY = 0.5f;
@@ -30,61 +31,61 @@ namespace
         {
             {
                 "Init Prism",
-                0.0f, -6.0f, 6.0f, 100.0f, 0.50f, 0.50f,
+                0.0f, -6.0f, 6.0f, 50.0f, 100.0f, 0.50f, 0.50f,
                 0,
                 0, 1, 2, 3
             },
             {
                 "Warm Tube Drive",
-                -3.0f, -5.0f, 5.5f, 85.0f, 0.25f, 0.25f,
+                -3.0f, -5.0f, 5.5f, 38.0f, 85.0f, 0.25f, 0.25f,
                 0,
                 0, 0, 4, 7
             },
             {
                 "Hard Clip Bite",
-                -8.0f, -9.0f, 10.5f, 100.0f, 0.78f, 0.18f,
+                -8.0f, -9.0f, 10.5f, 62.0f, 100.0f, 0.78f, 0.18f,
                 0,
                 0, 1, 4, 6
             },
             {
                 "Foldback Motion",
-                -8.0f, -10.0f, 12.0f, 92.0f, 0.30f, 0.74f,
+                -8.0f, -10.0f, 12.0f, 56.0f, 92.0f, 0.30f, 0.74f,
                 0,
                 2, 6, 0, 4
             },
             {
                 "Fuzz Wall",
-                -10.0f, -12.0f, 14.0f, 100.0f, 0.72f, 0.80f,
+                -10.0f, -12.0f, 14.0f, 36.0f, 100.0f, 0.72f, 0.80f,
                 0,
                 3, 1, 7, 3
             },
             {
                 "Crushed Sparks",
-                -8.0f, -10.0f, 11.0f, 88.0f, 0.54f, 0.62f,
+                -8.0f, -10.0f, 11.0f, 70.0f, 88.0f, 0.54f, 0.62f,
                 0,
                 5, 1, 6, 2
             },
             {
                 "Wavefold Glass",
-                -7.0f, -9.0f, 9.5f, 82.0f, 0.62f, 0.42f,
+                -7.0f, -9.0f, 9.5f, 64.0f, 82.0f, 0.62f, 0.42f,
                 0,
                 6, 0, 2, 4
             },
             {
                 "Rectified Growl",
-                -9.0f, -11.0f, 13.0f, 95.0f, 0.42f, 0.82f,
+                -9.0f, -11.0f, 13.0f, 42.0f, 95.0f, 0.42f, 0.82f,
                 0,
                 7, 3, 4, 2
             },
             {
                 "Parallel Grit",
-                -6.0f, -8.0f, 8.0f, 55.0f, 0.50f, 0.50f,
+                -6.0f, -8.0f, 8.0f, 50.0f, 55.0f, 0.50f, 0.50f,
                 0,
                 0, 1, 5, 3
             },
             {
                 "Side Texture",
-                -7.0f, -10.0f, 9.0f, 78.0f, 0.66f, 0.48f,
+                -7.0f, -10.0f, 9.0f, 68.0f, 78.0f, 0.66f, 0.48f,
                 3,
                 6, 5, 2, 7
             }
@@ -377,11 +378,13 @@ MorphAudioProcessorEditor::MorphAudioProcessorEditor(MorphAudioProcessor& p)
 
     configureSlider(inputSlider);
     configureSlider(driveSlider);
+    configureSlider(toneSlider);
     configureSlider(mixSlider);
     configureSlider(outputSlider);
 
     configureLabel(inputLabel, "INPUT");
     configureLabel(driveLabel, "DRIVE");
+    configureLabel(toneLabel, "TONE");
     configureLabel(mixLabel, "MIX");
     configureLabel(outputLabel, "OUTPUT");
 
@@ -390,6 +393,9 @@ MorphAudioProcessorEditor::MorphAudioProcessorEditor(MorphAudioProcessor& p)
 
     driveAttachment = std::make_unique<SliderAttachment>(
         processor.apvts, ParamID::drive, driveSlider);
+
+    toneAttachment = std::make_unique<SliderAttachment>(
+        processor.apvts, ParamID::tone, toneSlider);
 
     mixAttachment = std::make_unique<SliderAttachment>(
         processor.apvts, ParamID::mix, mixSlider);
@@ -580,6 +586,7 @@ void MorphAudioProcessorEditor::applyFactoryPreset(int presetIndex)
     setParameterValue(processor, ParamID::inputGain, preset.inputGainDb);
     setParameterValue(processor, ParamID::outputGain, preset.outputGainDb);
     setParameterValue(processor, ParamID::drive, preset.drive);
+    setParameterValue(processor, ParamID::tone, preset.tone);
     setParameterValue(processor, ParamID::mix, preset.mixPercent);
 
     setParameterValue(processor, ParamID::vectorX, preset.vectorX);
@@ -692,10 +699,11 @@ void MorphAudioProcessorEditor::resized()
 
     auto controls = bounds.removeFromBottom(112);
 
-    const int controlWidth = controls.getWidth() / 4;
+    const int controlWidth = controls.getWidth() / 5;
 
     layoutControl(controls.removeFromLeft(controlWidth), inputSlider, inputLabel);
     layoutControl(controls.removeFromLeft(controlWidth), driveSlider, driveLabel);
+    layoutControl(controls.removeFromLeft(controlWidth), toneSlider, toneLabel);
     layoutControl(controls.removeFromLeft(controlWidth), mixSlider, mixLabel);
     layoutControl(controls, outputSlider, outputLabel);
 }

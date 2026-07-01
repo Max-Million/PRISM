@@ -27,6 +27,7 @@ public:
 
     void setDrive(float newDrive);
     void setMix(float newMix);
+    void setTone(float newTone);
     void setBypassed(bool shouldBypass);
     void setOutputMode(int newOutputMode);
 
@@ -75,6 +76,7 @@ private:
 
     void processAudioBlock(juce::dsp::AudioBlock<float>& block);
 
+    float processToneShaper(float sample, size_t channel, float currentTone);
     float processDcBlocker(float sample, size_t channel);
 
     TubeAlgorithm tube;
@@ -92,9 +94,13 @@ private:
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> outputGainDb;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> drive;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> mix;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> tone;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> bypassAmount;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> vectorX;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> vectorY;
+
+    std::vector<float> toneLowState;
+    float toneFilterCoefficient = 0.05f;
 
     std::vector<float> dcBlockerInputState;
     std::vector<float> dcBlockerOutputState;
