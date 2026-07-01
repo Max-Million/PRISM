@@ -45,6 +45,7 @@ private:
     VectorPadComponent vectorPad;
 
     juce::Label titleLabel;
+    juce::Label subtitleLabel;
 
     juce::Slider inputSlider;
     juce::Slider driveSlider;

@@ -5,30 +5,39 @@ namespace
 {
     juce::Rectangle<float> getPadBounds(juce::Rectangle<int> bounds)
     {
-        return bounds.reduced(18).toFloat();
+        return bounds.reduced(22).toFloat();
     }
 
     void drawNode(juce::Graphics& g,
         juce::Rectangle<float> pad,
         juce::Point<float> normalisedPosition,
-        const juce::String& text)
+        const juce::String& title,
+        const juce::String& subtitle)
     {
         const auto pos = juce::Point<float>(
             pad.getX() + normalisedPosition.x * pad.getWidth(),
             pad.getY() + normalisedPosition.y * pad.getHeight());
 
-        g.setColour(juce::Colour::fromRGB(130, 110, 255).withAlpha(0.85f));
+        g.setColour(juce::Colour::fromRGB(150, 125, 255).withAlpha(0.92f));
         g.fillEllipse(pos.x - 7.0f, pos.y - 7.0f, 14.0f, 14.0f);
 
-        g.setColour(juce::Colours::white.withAlpha(0.78f));
-        g.setFont(13.0f);
+        g.setColour(juce::Colours::white.withAlpha(0.9f));
+        g.setFont(juce::FontOptions(13.0f, juce::Font::bold));
 
-        juce::Rectangle<float> labelArea(pos.x - 48.0f, pos.y - 30.0f, 96.0f, 20.0f);
+        juce::Rectangle<float> titleArea(pos.x - 58.0f, pos.y - 36.0f, 116.0f, 18.0f);
+        juce::Rectangle<float> subtitleArea(pos.x - 58.0f, pos.y - 19.0f, 116.0f, 16.0f);
 
         if (normalisedPosition.y > 0.5f)
-            labelArea.setY(pos.y + 10.0f);
+        {
+            titleArea.setY(pos.y + 10.0f);
+            subtitleArea.setY(pos.y + 27.0f);
+        }
 
-        g.drawText(text, labelArea, juce::Justification::centred);
+        g.drawText(title, titleArea, juce::Justification::centred);
+
+        g.setColour(juce::Colours::white.withAlpha(0.52f));
+        g.setFont(11.0f);
+        g.drawText(subtitle, subtitleArea, juce::Justification::centred);
     }
 }
 
@@ -45,32 +54,51 @@ void VectorPadComponent::paint(juce::Graphics& g)
 {
     auto pad = getPadBounds(getLocalBounds());
 
-    g.setColour(juce::Colour::fromRGB(30, 30, 40));
-    g.fillRoundedRectangle(pad, 18.0f);
+    g.setColour(juce::Colour::fromRGB(27, 27, 36));
+    g.fillRoundedRectangle(pad, 20.0f);
 
     g.setColour(juce::Colour::fromRGB(70, 70, 95));
-    g.drawRoundedRectangle(pad, 18.0f, 1.5f);
+    g.drawRoundedRectangle(pad, 20.0f, 1.4f);
 
-    g.setColour(juce::Colours::white.withAlpha(0.08f));
-    g.drawLine(pad.getX(), pad.getCentreY(), pad.getRight(), pad.getCentreY(), 1.0f);
-    g.drawLine(pad.getCentreX(), pad.getY(), pad.getCentreX(), pad.getBottom(), 1.0f);
+    g.setColour(juce::Colours::white.withAlpha(0.055f));
 
-    drawNode(g, pad, { 0.0f, 0.0f }, "Tube");
-    drawNode(g, pad, { 1.0f, 0.0f }, "Clip");
-    drawNode(g, pad, { 0.0f, 1.0f }, "Fold");
-    drawNode(g, pad, { 1.0f, 1.0f }, "Fuzz");
-    drawNode(g, pad, { 0.5f, 0.5f }, "Drive");
+    for (int i = 1; i < 4; ++i)
+    {
+        const float t = static_cast<float>(i) / 4.0f;
+
+        g.drawLine(pad.getX() + pad.getWidth() * t,
+            pad.getY(),
+            pad.getX() + pad.getWidth() * t,
+            pad.getBottom(),
+            1.0f);
+
+        g.drawLine(pad.getX(),
+            pad.getY() + pad.getHeight() * t,
+            pad.getRight(),
+            pad.getY() + pad.getHeight() * t,
+            1.0f);
+    }
+
+    g.setColour(juce::Colours::white.withAlpha(0.1f));
+    g.drawLine(pad.getX(), pad.getCentreY(), pad.getRight(), pad.getCentreY(), 1.2f);
+    g.drawLine(pad.getCentreX(), pad.getY(), pad.getCentreX(), pad.getBottom(), 1.2f);
+
+    drawNode(g, pad, { 0.0f, 0.0f }, "TUBE", "warm");
+    drawNode(g, pad, { 1.0f, 0.0f }, "CLIP", "hard");
+    drawNode(g, pad, { 0.0f, 1.0f }, "FOLD", "foldback");
+    drawNode(g, pad, { 1.0f, 1.0f }, "FUZZ", "gated");
+    drawNode(g, pad, { 0.5f, 0.5f }, "DRIVE", "amp");
 
     const auto puck = getCurrentPuckPosition();
 
-    g.setColour(juce::Colour::fromRGB(180, 150, 255).withAlpha(0.22f));
-    g.fillEllipse(puck.x - 22.0f, puck.y - 22.0f, 44.0f, 44.0f);
+    g.setColour(juce::Colour::fromRGB(180, 150, 255).withAlpha(0.2f));
+    g.fillEllipse(puck.x - 25.0f, puck.y - 25.0f, 50.0f, 50.0f);
 
-    g.setColour(juce::Colour::fromRGB(210, 195, 255));
-    g.fillEllipse(puck.x - 9.0f, puck.y - 9.0f, 18.0f, 18.0f);
+    g.setColour(juce::Colour::fromRGB(210, 195, 255).withAlpha(0.95f));
+    g.fillEllipse(puck.x - 10.0f, puck.y - 10.0f, 20.0f, 20.0f);
 
     g.setColour(juce::Colours::white.withAlpha(0.9f));
-    g.drawEllipse(puck.x - 9.0f, puck.y - 9.0f, 18.0f, 18.0f, 1.2f);
+    g.drawEllipse(puck.x - 10.0f, puck.y - 10.0f, 20.0f, 20.0f, 1.2f);
 }
 
 void VectorPadComponent::mouseDown(const juce::MouseEvent& event)
@@ -137,14 +165,21 @@ MorphAudioProcessorEditor::MorphAudioProcessorEditor(MorphAudioProcessor& p)
     processor(p),
     vectorPad(p)
 {
-    setSize(720, 500);
+    setSize(740, 520);
     setResizable(true, true);
 
     titleLabel.setText("PRISM", juce::dontSendNotification);
     titleLabel.setJustificationType(juce::Justification::centred);
-    titleLabel.setFont(juce::FontOptions(32.0f, juce::Font::bold));
+    titleLabel.setFont(juce::FontOptions(34.0f, juce::Font::bold));
     titleLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     addAndMakeVisible(titleLabel);
+
+    subtitleLabel.setText("vector distortion", juce::dontSendNotification);
+    subtitleLabel.setJustificationType(juce::Justification::centred);
+    subtitleLabel.setFont(13.0f);
+    subtitleLabel.setColour(juce::Label::textColourId,
+        juce::Colours::white.withAlpha(0.55f));
+    addAndMakeVisible(subtitleLabel);
 
     addAndMakeVisible(vectorPad);
 
@@ -153,10 +188,10 @@ MorphAudioProcessorEditor::MorphAudioProcessorEditor(MorphAudioProcessor& p)
     configureSlider(mixSlider);
     configureSlider(outputSlider);
 
-    configureLabel(inputLabel, "Input");
-    configureLabel(driveLabel, "Drive");
-    configureLabel(mixLabel, "Mix");
-    configureLabel(outputLabel, "Output");
+    configureLabel(inputLabel, "INPUT");
+    configureLabel(driveLabel, "DRIVE");
+    configureLabel(mixLabel, "MIX");
+    configureLabel(outputLabel, "OUTPUT");
 
     inputAttachment = std::make_unique<SliderAttachment>(
         processor.apvts, ParamID::inputGain, inputSlider);
@@ -199,9 +234,9 @@ void MorphAudioProcessorEditor::configureLabel(juce::Label& label,
 {
     label.setText(text, juce::dontSendNotification);
     label.setJustificationType(juce::Justification::centred);
-    label.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+    label.setFont(juce::FontOptions(13.0f, juce::Font::bold));
     label.setColour(juce::Label::textColourId,
-        juce::Colours::white.withAlpha(0.82f));
+        juce::Colours::white.withAlpha(0.76f));
 
     addAndMakeVisible(label);
 }
@@ -218,18 +253,34 @@ void MorphAudioProcessorEditor::layoutControl(juce::Rectangle<int> area,
 
 void MorphAudioProcessorEditor::paint(juce::Graphics& g)
 {
-    g.fillAll(juce::Colour::fromRGB(18, 18, 22));
+    g.fillAll(juce::Colour::fromRGB(16, 16, 21));
+
+    auto bounds = getLocalBounds().toFloat();
+
+    g.setGradientFill(juce::ColourGradient(
+        juce::Colour::fromRGB(34, 26, 58).withAlpha(0.55f),
+        bounds.getCentreX(),
+        0.0f,
+        juce::Colour::fromRGB(16, 16, 21),
+        bounds.getCentreX(),
+        bounds.getBottom(),
+        false));
+
+    g.fillRect(bounds);
 }
 
 void MorphAudioProcessorEditor::resized()
 {
     auto bounds = getLocalBounds().reduced(24);
 
-    titleLabel.setBounds(bounds.removeFromTop(48));
+    titleLabel.setBounds(bounds.removeFromTop(38));
+    subtitleLabel.setBounds(bounds.removeFromTop(20));
 
-    vectorPad.setBounds(bounds.removeFromTop(290));
+    bounds.removeFromTop(8);
 
-    bounds.removeFromTop(10);
+    vectorPad.setBounds(bounds.removeFromTop(300));
+
+    bounds.removeFromTop(8);
 
     auto controls = bounds.removeFromBottom(120);
 

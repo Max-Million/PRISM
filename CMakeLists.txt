@@ -13,18 +13,18 @@ else()
 endif()
 
 juce_add_plugin(Morph
-    COMPANY_NAME "YourCompany"
-    BUNDLE_ID "com.yourcompany.morph"
+    COMPANY_NAME "Max Million"
+    BUNDLE_ID "com.maxmillion.prism"
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE
     NEEDS_MIDI_OUTPUT FALSE
     IS_MIDI_EFFECT FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
     COPY_PLUGIN_AFTER_BUILD FALSE
-    PLUGIN_MANUFACTURER_CODE Ycmp
-    PLUGIN_CODE Mrph
+    PLUGIN_MANUFACTURER_CODE MxMl
+    PLUGIN_CODE Prsm
     FORMATS VST3 Standalone
-    PRODUCT_NAME "Morph"
+    PRODUCT_NAME "PRISM"
 )
 
 juce_generate_juce_header(Morph)
