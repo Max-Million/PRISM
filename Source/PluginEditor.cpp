@@ -350,7 +350,7 @@ MorphAudioProcessorEditor::MorphAudioProcessorEditor(MorphAudioProcessor& p)
     processor(p),
     vectorPad(p)
 {
-    setSize(820, 700);
+    setSize(820, 740);
     setResizable(true, true);
 
     titleLabel.setText("PRISM", juce::dontSendNotification);
@@ -368,6 +368,13 @@ MorphAudioProcessorEditor::MorphAudioProcessorEditor(MorphAudioProcessor& p)
 
     configureBypassButton();
     configureRandomizeButton();
+
+    configureLockButton(driveLockButton, "LOCK DRIVE");
+    configureLockButton(toneLockButton, "LOCK TONE");
+    configureLockButton(mixLockButton, "LOCK MIX");
+    configureLockButton(vectorLockButton, "LOCK VECTOR");
+    configureLockButton(cornersLockButton, "LOCK CORNERS");
+
     configurePresetBox();
     configureOutputModeBox();
 
@@ -504,6 +511,27 @@ void MorphAudioProcessorEditor::configureRandomizeButton()
         };
 
     addAndMakeVisible(randomizeButton);
+}
+
+void MorphAudioProcessorEditor::configureLockButton(juce::TextButton& button,
+    const juce::String& text)
+{
+    button.setButtonText(text);
+    button.setClickingTogglesState(true);
+
+    button.setColour(juce::TextButton::buttonColourId,
+        juce::Colour::fromRGB(26, 26, 36));
+
+    button.setColour(juce::TextButton::buttonOnColourId,
+        juce::Colour::fromRGB(95, 72, 150));
+
+    button.setColour(juce::TextButton::textColourOffId,
+        juce::Colours::white.withAlpha(0.56f));
+
+    button.setColour(juce::TextButton::textColourOnId,
+        juce::Colours::white.withAlpha(0.95f));
+
+    addAndMakeVisible(button);
 }
 
 void MorphAudioProcessorEditor::configurePresetBox()
@@ -645,49 +673,68 @@ void MorphAudioProcessorEditor::applyRandomize()
 {
     auto& random = juce::Random::getSystemRandom();
 
-    const float randomizedDrive = getRandomFloat(random, 4.0f, 16.5f);
-    const float randomizedTone = getRandomFloat(random, 24.0f, 78.0f);
-    const float randomizedMix = getRandomFloat(random, 55.0f, 100.0f);
-    const float randomizedVectorX = getRandomFloat(random, 0.08f, 0.92f);
-    const float randomizedVectorY = getRandomFloat(random, 0.08f, 0.92f);
-
-    std::vector<int> algorithmPool;
-
-    const int algorithmCount = getAlgorithmChoices().size();
-
-    for (int i = 0; i < algorithmCount; ++i)
-        algorithmPool.push_back(i);
-
-    std::array<int, 4> randomizedAlgorithms{};
-
-    for (auto& algorithm : randomizedAlgorithms)
-    {
-        const int poolIndex = random.nextInt(static_cast<int>(algorithmPool.size()));
-
-        algorithm = algorithmPool[static_cast<size_t>(poolIndex)];
-        algorithmPool.erase(algorithmPool.begin() + poolIndex);
-    }
-
     // Randomize only creative parameters.
     // Input, Output, Output Mode, and Bypass are intentionally left untouched.
-    setParameterValue(processor, ParamID::drive, randomizedDrive);
-    setParameterValue(processor, ParamID::tone, randomizedTone);
-    setParameterValue(processor, ParamID::mix, randomizedMix);
+    // Lock buttons skip their assigned sections.
 
-    setParameterValue(processor, ParamID::vectorX, randomizedVectorX);
-    setParameterValue(processor, ParamID::vectorY, randomizedVectorY);
+    if (!driveLockButton.getToggleState())
+    {
+        const float randomizedDrive = getRandomFloat(random, 4.0f, 16.5f);
+        setParameterValue(processor, ParamID::drive, randomizedDrive);
+    }
 
-    setParameterValue(processor, ParamID::topLeftAlgorithm,
-        static_cast<float> (randomizedAlgorithms[0]));
+    if (!toneLockButton.getToggleState())
+    {
+        const float randomizedTone = getRandomFloat(random, 24.0f, 78.0f);
+        setParameterValue(processor, ParamID::tone, randomizedTone);
+    }
 
-    setParameterValue(processor, ParamID::topRightAlgorithm,
-        static_cast<float> (randomizedAlgorithms[1]));
+    if (!mixLockButton.getToggleState())
+    {
+        const float randomizedMix = getRandomFloat(random, 55.0f, 100.0f);
+        setParameterValue(processor, ParamID::mix, randomizedMix);
+    }
 
-    setParameterValue(processor, ParamID::bottomLeftAlgorithm,
-        static_cast<float> (randomizedAlgorithms[2]));
+    if (!vectorLockButton.getToggleState())
+    {
+        const float randomizedVectorX = getRandomFloat(random, 0.08f, 0.92f);
+        const float randomizedVectorY = getRandomFloat(random, 0.08f, 0.92f);
 
-    setParameterValue(processor, ParamID::bottomRightAlgorithm,
-        static_cast<float> (randomizedAlgorithms[3]));
+        setParameterValue(processor, ParamID::vectorX, randomizedVectorX);
+        setParameterValue(processor, ParamID::vectorY, randomizedVectorY);
+    }
+
+    if (!cornersLockButton.getToggleState())
+    {
+        std::vector<int> algorithmPool;
+
+        const int algorithmCount = getAlgorithmChoices().size();
+
+        for (int i = 0; i < algorithmCount; ++i)
+            algorithmPool.push_back(i);
+
+        std::array<int, 4> randomizedAlgorithms{};
+
+        for (auto& algorithm : randomizedAlgorithms)
+        {
+            const int poolIndex = random.nextInt(static_cast<int>(algorithmPool.size()));
+
+            algorithm = algorithmPool[static_cast<size_t>(poolIndex)];
+            algorithmPool.erase(algorithmPool.begin() + poolIndex);
+        }
+
+        setParameterValue(processor, ParamID::topLeftAlgorithm,
+            static_cast<float> (randomizedAlgorithms[0]));
+
+        setParameterValue(processor, ParamID::topRightAlgorithm,
+            static_cast<float> (randomizedAlgorithms[1]));
+
+        setParameterValue(processor, ParamID::bottomLeftAlgorithm,
+            static_cast<float> (randomizedAlgorithms[2]));
+
+        setParameterValue(processor, ParamID::bottomRightAlgorithm,
+            static_cast<float> (randomizedAlgorithms[3]));
+    }
 
     vectorPad.repaint();
 }
@@ -764,6 +811,17 @@ void MorphAudioProcessorEditor::resized()
     layoutSmallSelector(presetOutputArea,
         outputModeLabel,
         outputModeBox);
+
+    bounds.removeFromTop(6);
+
+    auto lockArea = bounds.removeFromTop(36);
+    const int lockWidth = lockArea.getWidth() / 5;
+
+    driveLockButton.setBounds(lockArea.removeFromLeft(lockWidth).reduced(5, 5));
+    toneLockButton.setBounds(lockArea.removeFromLeft(lockWidth).reduced(5, 5));
+    mixLockButton.setBounds(lockArea.removeFromLeft(lockWidth).reduced(5, 5));
+    vectorLockButton.setBounds(lockArea.removeFromLeft(lockWidth).reduced(5, 5));
+    cornersLockButton.setBounds(lockArea.reduced(5, 5));
 
     bounds.removeFromTop(8);
 
