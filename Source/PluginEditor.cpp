@@ -31,62 +31,62 @@ namespace
         static const std::vector<FactoryPreset> presets
         {
             {
-                "Init Prism",
+                "Init",
                 0.0f, -6.0f, 6.0f, 50.0f, 100.0f, 0.50f, 0.50f,
                 0,
                 0, 1, 2, 3
             },
             {
-                "Warm Tube Drive",
-                -3.0f, -5.0f, 5.5f, 38.0f, 85.0f, 0.25f, 0.25f,
+                "Warm Tube",
+                -3.0f, -6.0f, 5.5f, 38.0f, 85.0f, 0.25f, 0.25f,
                 0,
                 0, 0, 4, 7
             },
             {
-                "Hard Clip Bite",
-                -8.0f, -9.0f, 10.5f, 62.0f, 100.0f, 0.78f, 0.18f,
+                "Clip Bite",
+                -8.0f, -10.0f, 10.0f, 60.0f, 96.0f, 0.78f, 0.18f,
                 0,
                 0, 1, 4, 6
             },
             {
-                "Foldback Motion",
-                -8.0f, -10.0f, 12.0f, 56.0f, 92.0f, 0.30f, 0.74f,
+                "Fold Motion",
+                -8.0f, -10.5f, 11.5f, 54.0f, 90.0f, 0.30f, 0.74f,
                 0,
                 2, 6, 0, 4
             },
             {
                 "Fuzz Wall",
-                -10.0f, -12.0f, 14.0f, 36.0f, 100.0f, 0.72f, 0.80f,
+                -10.0f, -13.0f, 13.0f, 34.0f, 96.0f, 0.72f, 0.80f,
                 0,
                 3, 1, 7, 3
             },
             {
                 "Crushed Sparks",
-                -8.0f, -10.0f, 11.0f, 70.0f, 88.0f, 0.54f, 0.62f,
+                -8.0f, -11.0f, 10.5f, 68.0f, 86.0f, 0.54f, 0.62f,
                 0,
                 5, 1, 6, 2
             },
             {
                 "Wavefold Glass",
-                -7.0f, -9.0f, 9.5f, 64.0f, 82.0f, 0.62f, 0.42f,
+                -7.0f, -10.0f, 9.5f, 62.0f, 82.0f, 0.62f, 0.42f,
                 0,
                 6, 0, 2, 4
             },
             {
-                "Rectified Growl",
-                -9.0f, -11.0f, 13.0f, 42.0f, 95.0f, 0.42f, 0.82f,
+                "Rectifier Growl",
+                -9.0f, -12.0f, 12.0f, 40.0f, 92.0f, 0.42f, 0.82f,
                 0,
                 7, 3, 4, 2
             },
             {
                 "Parallel Grit",
-                -6.0f, -8.0f, 8.0f, 50.0f, 55.0f, 0.50f, 0.50f,
+                -6.0f, -9.0f, 8.0f, 50.0f, 58.0f, 0.50f, 0.50f,
                 0,
                 0, 1, 5, 3
             },
             {
                 "Side Texture",
-                -7.0f, -10.0f, 9.0f, 68.0f, 78.0f, 0.66f, 0.48f,
+                -7.0f, -11.0f, 8.5f, 66.0f, 76.0f, 0.66f, 0.48f,
                 3,
                 6, 5, 2, 7
             }
@@ -679,19 +679,19 @@ void MorphAudioProcessorEditor::applyRandomize()
 
     if (!driveLockButton.getToggleState())
     {
-        const float randomizedDrive = getRandomFloat(random, 4.0f, 16.5f);
+        const float randomizedDrive = getRandomFloat(random, 4.0f, 14.5f);
         setParameterValue(processor, ParamID::drive, randomizedDrive);
     }
 
     if (!toneLockButton.getToggleState())
     {
-        const float randomizedTone = getRandomFloat(random, 24.0f, 78.0f);
+        const float randomizedTone = getRandomFloat(random, 28.0f, 74.0f);
         setParameterValue(processor, ParamID::tone, randomizedTone);
     }
 
     if (!mixLockButton.getToggleState())
     {
-        const float randomizedMix = getRandomFloat(random, 55.0f, 100.0f);
+        const float randomizedMix = getRandomFloat(random, 60.0f, 96.0f);
         setParameterValue(processor, ParamID::mix, randomizedMix);
     }
 
