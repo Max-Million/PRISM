@@ -47,6 +47,8 @@ private:
     juce::Label titleLabel;
     juce::Label subtitleLabel;
 
+    juce::ToggleButton bypassButton;
+
     juce::Slider inputSlider;
     juce::Slider driveSlider;
     juce::Slider mixSlider;
@@ -58,14 +60,18 @@ private:
     juce::Label outputLabel;
 
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
+    using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
 
     std::unique_ptr<SliderAttachment> inputAttachment;
     std::unique_ptr<SliderAttachment> driveAttachment;
     std::unique_ptr<SliderAttachment> mixAttachment;
     std::unique_ptr<SliderAttachment> outputAttachment;
+    std::unique_ptr<ButtonAttachment> bypassAttachment;
 
     void configureSlider(juce::Slider& slider);
     void configureLabel(juce::Label& label, const juce::String& text);
+    void configureBypassButton();
+
     void layoutControl(juce::Rectangle<int> area,
         juce::Slider& slider,
         juce::Label& label);

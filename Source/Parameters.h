@@ -10,11 +10,17 @@ namespace ParamID
     static constexpr auto mix = "mix";
     static constexpr auto vectorX = "vectorX";
     static constexpr auto vectorY = "vectorY";
+    static constexpr auto bypass = "bypass";
 }
 
 inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
+
+    params.push_back(std::make_unique<juce::AudioParameterBool>(
+        ParamID::bypass,
+        "Bypass",
+        false));
 
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         ParamID::inputGain,
