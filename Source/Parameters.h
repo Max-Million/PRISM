@@ -8,6 +8,7 @@ namespace ParamID
     static constexpr auto outputGain = "outputGain";
     static constexpr auto drive = "drive";
     static constexpr auto mix = "mix";
+    static constexpr auto tone = "tone";
     static constexpr auto vectorX = "vectorX";
     static constexpr auto vectorY = "vectorY";
     static constexpr auto bypass = "bypass";
@@ -84,6 +85,12 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout
         "Mix",
         juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f),
         100.0f));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        ParamID::tone,
+        "Tone",
+        juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f),
+        50.0f)); // 0 = dark, 50 = neutral, 100 = bright
 
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         ParamID::vectorX,

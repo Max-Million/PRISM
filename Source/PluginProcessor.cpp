@@ -45,6 +45,7 @@ void MorphAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     const auto* outputGainParam = apvts.getRawParameterValue(ParamID::outputGain);
     const auto* driveParam = apvts.getRawParameterValue(ParamID::drive);
     const auto* mixParam = apvts.getRawParameterValue(ParamID::mix);
+    const auto* toneParam = apvts.getRawParameterValue(ParamID::tone);
     const auto* vectorXParam = apvts.getRawParameterValue(ParamID::vectorX);
     const auto* vectorYParam = apvts.getRawParameterValue(ParamID::vectorY);
     const auto* topLeftAlgorithmParam = apvts.getRawParameterValue(ParamID::topLeftAlgorithm);
@@ -58,6 +59,7 @@ void MorphAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     const float inputGainDb = inputGainParam != nullptr ? inputGainParam->load() : 0.0f;
     const float outputGainDb = outputGainParam != nullptr ? outputGainParam->load() : -6.0f;
     const float drive = driveParam != nullptr ? driveParam->load() : 6.0f;
+    const float tone = toneParam != nullptr ? toneParam->load() : 50.0f;
 
     const float mixPercent = mixParam != nullptr ? mixParam->load() : 100.0f;
     const float mix = juce::jlimit(0.0f, 1.0f, mixPercent / 100.0f);
@@ -87,6 +89,7 @@ void MorphAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     engine.setOutputGainDb(outputGainDb);
     engine.setDrive(drive);
     engine.setMix(mix);
+    engine.setTone(tone);
     engine.setVectorPosition(vectorX, vectorY);
     engine.setCornerAlgorithms(topLeftAlgorithm,
         topRightAlgorithm,

@@ -69,11 +69,13 @@ private:
 
     juce::Slider inputSlider;
     juce::Slider driveSlider;
+    juce::Slider toneSlider;
     juce::Slider mixSlider;
     juce::Slider outputSlider;
 
     juce::Label inputLabel;
     juce::Label driveLabel;
+    juce::Label toneLabel;
     juce::Label mixLabel;
     juce::Label outputLabel;
 
@@ -83,6 +85,7 @@ private:
 
     std::unique_ptr<SliderAttachment> inputAttachment;
     std::unique_ptr<SliderAttachment> driveAttachment;
+    std::unique_ptr<SliderAttachment> toneAttachment;
     std::unique_ptr<SliderAttachment> mixAttachment;
     std::unique_ptr<SliderAttachment> outputAttachment;
 

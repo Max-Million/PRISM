@@ -48,6 +48,12 @@ void MorphEngine::prepare(double sampleRate, int samplesPerBlock, int numChannel
     effectiveSampleRate = currentSampleRate
         * static_cast<double> (oversampler->getOversamplingFactor());
 
+    constexpr double toneCutoffHz = 900.0;
+    toneFilterCoefficient = static_cast<float> (
+        1.0 - std::exp(-2.0 * juce::MathConstants<double>::pi * toneCutoffHz / effectiveSampleRate));
+
+    toneLowState.assign(static_cast<size_t> (currentNumChannels), 0.0f);
+
     constexpr double dcCutoffHz = 12.0;
     dcBlockerCoefficient = static_cast<float> (
         std::exp(-2.0 * juce::MathConstants<double>::pi * dcCutoffHz / effectiveSampleRate));
@@ -68,6 +74,7 @@ void MorphEngine::prepare(double sampleRate, int samplesPerBlock, int numChannel
     outputGainDb.reset(effectiveSampleRate, 0.03);
     drive.reset(effectiveSampleRate, 0.06);
     mix.reset(effectiveSampleRate, 0.03);
+    tone.reset(effectiveSampleRate, 0.06);
     bypassAmount.reset(effectiveSampleRate, 0.02);
 
     vectorX.reset(effectiveSampleRate, 0.12);
@@ -77,6 +84,7 @@ void MorphEngine::prepare(double sampleRate, int samplesPerBlock, int numChannel
     outputGainDb.setCurrentAndTargetValue(-6.0f);
     drive.setCurrentAndTargetValue(6.0f);
     mix.setCurrentAndTargetValue(1.0f);
+    tone.setCurrentAndTargetValue(50.0f);
     bypassAmount.setCurrentAndTargetValue(0.0f);
     vectorX.setCurrentAndTargetValue(0.5f);
     vectorY.setCurrentAndTargetValue(0.5f);
@@ -98,6 +106,8 @@ void MorphEngine::reset()
     if (oversampler != nullptr)
         oversampler->reset();
 
+    std::fill(toneLowState.begin(), toneLowState.end(), 0.0f);
+
     std::fill(dcBlockerInputState.begin(), dcBlockerInputState.end(), 0.0f);
     std::fill(dcBlockerOutputState.begin(), dcBlockerOutputState.end(), 0.0f);
 
@@ -105,6 +115,7 @@ void MorphEngine::reset()
     outputGainDb.setCurrentAndTargetValue(outputGainDb.getTargetValue());
     drive.setCurrentAndTargetValue(drive.getTargetValue());
     mix.setCurrentAndTargetValue(mix.getTargetValue());
+    tone.setCurrentAndTargetValue(tone.getTargetValue());
     bypassAmount.setCurrentAndTargetValue(bypassAmount.getTargetValue());
     vectorX.setCurrentAndTargetValue(vectorX.getTargetValue());
     vectorY.setCurrentAndTargetValue(vectorY.getTargetValue());
@@ -136,6 +147,11 @@ void MorphEngine::setDrive(float newDrive)
 void MorphEngine::setMix(float newMix)
 {
     mix.setTargetValue(juce::jlimit(0.0f, 1.0f, newMix));
+}
+
+void MorphEngine::setTone(float newTone)
+{
+    tone.setTargetValue(juce::jlimit(0.0f, 100.0f, newTone));
 }
 
 void MorphEngine::setBypassed(bool shouldBypass)
@@ -213,6 +229,36 @@ MorphEngine::MorphWeights MorphEngine::calculateWeights(float x, float y) const
     return weights;
 }
 
+float MorphEngine::processToneShaper(float sample, size_t channel, float currentTone)
+{
+    if (channel >= toneLowState.size())
+        return sample;
+
+    if (std::abs(sample) < 1.0e-8f)
+    {
+        toneLowState[channel] = 0.0f;
+        return 0.0f;
+    }
+
+    auto& lowState = toneLowState[channel];
+
+    lowState += toneFilterCoefficient * (sample - lowState);
+
+    const float low = lowState;
+    const float high = sample - low;
+
+    const float toneAmount = juce::jlimit(-1.0f, 1.0f, (currentTone - 50.0f) / 50.0f);
+
+    if (toneAmount < 0.0f)
+    {
+        const float darkAmount = -toneAmount;
+        return safetyLimit(sample + (low - sample) * darkAmount);
+    }
+
+    const float brightAmount = toneAmount;
+    return safetyLimit(sample + high * brightAmount * 0.45f);
+}
+
 float MorphEngine::processDcBlocker(float sample, size_t channel)
 {
     if (channel >= dcBlockerInputState.size()
@@ -242,6 +288,7 @@ void MorphEngine::processAudioBlock(juce::dsp::AudioBlock<float>& block)
         const float currentOutputGainDb = outputGainDb.getNextValue();
         const float currentDrive = drive.getNextValue();
         const float currentMix = mix.getNextValue();
+        const float currentTone = tone.getNextValue();
         const float currentBypass = bypassAmount.getNextValue();
         const float currentVectorX = vectorX.getNextValue();
         const float currentVectorY = vectorY.getNextValue();
@@ -309,6 +356,9 @@ void MorphEngine::processAudioBlock(juce::dsp::AudioBlock<float>& block)
                 wetR = -side;
             }
 
+            wetL = processToneShaper(wetL, 0, currentTone);
+            wetR = processToneShaper(wetR, 1, currentTone);
+
             wetL = processDcBlocker(wetL, 0);
             wetR = processDcBlocker(wetR, 1);
 
@@ -321,6 +371,7 @@ void MorphEngine::processAudioBlock(juce::dsp::AudioBlock<float>& block)
 
                 const float clean = samples[i];
                 float wet = processWetOnly(clean);
+                wet = processToneShaper(wet, ch, currentTone);
                 wet = processDcBlocker(wet, ch);
 
                 samples[i] = safetyLimit(clean + (wet - clean) * (1.0f - currentBypass));
@@ -332,6 +383,7 @@ void MorphEngine::processAudioBlock(juce::dsp::AudioBlock<float>& block)
 
             const float clean = samples[i];
             float wet = processWetOnly(clean);
+            wet = processToneShaper(wet, 0, currentTone);
             wet = processDcBlocker(wet, 0);
 
             samples[i] = safetyLimit(clean + (wet - clean) * (1.0f - currentBypass));
