@@ -51,6 +51,9 @@ private:
 
     juce::ToggleButton bypassButton;
 
+    juce::ComboBox outputModeBox;
+    juce::Label outputModeLabel;
+
     juce::ComboBox topLeftBox;
     juce::ComboBox topRightBox;
     juce::ComboBox bottomLeftBox;
@@ -82,6 +85,8 @@ private:
 
     std::unique_ptr<ButtonAttachment> bypassAttachment;
 
+    std::unique_ptr<ComboBoxAttachment> outputModeAttachment;
+
     std::unique_ptr<ComboBoxAttachment> topLeftAttachment;
     std::unique_ptr<ComboBoxAttachment> topRightAttachment;
     std::unique_ptr<ComboBoxAttachment> bottomLeftAttachment;
@@ -91,8 +96,10 @@ private:
     void configureLabel(juce::Label& label, const juce::String& text);
     void configureBypassButton();
 
+    void configureOutputModeBox();
     void configureAlgorithmBox(juce::ComboBox& box);
     void configureCornerLabel(juce::Label& label, const juce::String& text);
+
     void layoutCornerSelector(juce::Rectangle<int> area,
         juce::Label& label,
         juce::ComboBox& box);

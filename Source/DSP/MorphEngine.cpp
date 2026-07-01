@@ -48,6 +48,13 @@ void MorphEngine::prepare(double sampleRate, int samplesPerBlock, int numChannel
     effectiveSampleRate = currentSampleRate
         * static_cast<double> (oversampler->getOversamplingFactor());
 
+    constexpr double dcCutoffHz = 12.0;
+    dcBlockerCoefficient = static_cast<float> (
+        std::exp(-2.0 * juce::MathConstants<double>::pi * dcCutoffHz / effectiveSampleRate));
+
+    dcBlockerInputState.assign(static_cast<size_t> (currentNumChannels), 0.0f);
+    dcBlockerOutputState.assign(static_cast<size_t> (currentNumChannels), 0.0f);
+
     tube.prepare(effectiveSampleRate, samplesPerBlock * 2, currentNumChannels);
     hardClip.prepare(effectiveSampleRate, samplesPerBlock * 2, currentNumChannels);
     foldback.prepare(effectiveSampleRate, samplesPerBlock * 2, currentNumChannels);
@@ -91,6 +98,9 @@ void MorphEngine::reset()
     if (oversampler != nullptr)
         oversampler->reset();
 
+    std::fill(dcBlockerInputState.begin(), dcBlockerInputState.end(), 0.0f);
+    std::fill(dcBlockerOutputState.begin(), dcBlockerOutputState.end(), 0.0f);
+
     inputGainDb.setCurrentAndTargetValue(inputGainDb.getTargetValue());
     outputGainDb.setCurrentAndTargetValue(outputGainDb.getTargetValue());
     drive.setCurrentAndTargetValue(drive.getTargetValue());
@@ -131,6 +141,11 @@ void MorphEngine::setMix(float newMix)
 void MorphEngine::setBypassed(bool shouldBypass)
 {
     bypassAmount.setTargetValue(shouldBypass ? 1.0f : 0.0f);
+}
+
+void MorphEngine::setOutputMode(int newOutputMode)
+{
+    outputMode = juce::jlimit(0, numOutputModes - 1, newOutputMode);
 }
 
 void MorphEngine::setVectorPosition(float newX, float newY)
@@ -193,6 +208,24 @@ MorphEngine::MorphWeights MorphEngine::calculateWeights(float x, float y) const
     return weights;
 }
 
+float MorphEngine::processDcBlocker(float sample, size_t channel)
+{
+    if (channel >= dcBlockerInputState.size()
+        || channel >= dcBlockerOutputState.size())
+        return sample;
+
+    const float previousInput = dcBlockerInputState[channel];
+    const float previousOutput = dcBlockerOutputState[channel];
+
+    const float output = sample - previousInput
+        + dcBlockerCoefficient * previousOutput;
+
+    dcBlockerInputState[channel] = sample;
+    dcBlockerOutputState[channel] = output;
+
+    return output;
+}
+
 void MorphEngine::processAudioBlock(juce::dsp::AudioBlock<float>& block)
 {
     const auto numChannels = block.getNumChannels();
@@ -215,35 +248,85 @@ void MorphEngine::processAudioBlock(juce::dsp::AudioBlock<float>& block)
         const float inputGain = juce::Decibels::decibelsToGain(currentInputGainDb);
         const float outputGain = juce::Decibels::decibelsToGain(currentOutputGainDb);
 
-        for (size_t ch = 0; ch < numChannels; ++ch)
+        auto processWetOnly = [&](float cleanInput)
+            {
+                const float dry = cleanInput * inputGain;
+
+                const std::array<float, numAlgorithms> outputs
+                { {
+                    tube.processSample(dry) * 0.72f,
+                    hardClip.processSample(dry) * 0.60f,
+                    foldback.processSample(dry) * 0.34f,
+                    fuzz.processSample(dry) * 0.42f,
+                    ampDrive.processSample(dry) * 0.74f,
+                    bitcrush.processSample(dry) * 0.46f,
+                    wavefolder.processSample(dry) * 0.48f,
+                    rectifier.processSample(dry) * 0.44f
+                } };
+
+                const float algorithmWet =
+                    outputs[static_cast<size_t> (topLeftAlgorithm)] * weights.topLeft
+                    + outputs[static_cast<size_t> (topRightAlgorithm)] * weights.topRight
+                    + outputs[static_cast<size_t> (bottomLeftAlgorithm)] * weights.bottomLeft
+                    + outputs[static_cast<size_t> (bottomRightAlgorithm)] * weights.bottomRight;
+
+                return safetyLimit(safeClip(dry + currentMix * (algorithmWet - dry)) * outputGain);
+            };
+
+        if (numChannels >= 2)
         {
-            auto* samples = block.getChannelPointer(ch);
+            auto* left = block.getChannelPointer(0);
+            auto* right = block.getChannelPointer(1);
 
-            const float cleanInput = samples[i];
-            const float dry = cleanInput * inputGain;
+            const float cleanL = left[i];
+            const float cleanR = right[i];
 
-            const std::array<float, numAlgorithms> outputs
-            { {
-                tube.processSample(dry) * 0.72f,
-                hardClip.processSample(dry) * 0.60f,
-                foldback.processSample(dry) * 0.34f,
-                fuzz.processSample(dry) * 0.42f,
-                ampDrive.processSample(dry) * 0.74f,
-                bitcrush.processSample(dry) * 0.46f,
-                wavefolder.processSample(dry) * 0.48f,
-                rectifier.processSample(dry) * 0.44f
-            } };
+            float wetL = processWetOnly(cleanL);
+            float wetR = processWetOnly(cleanR);
 
-            const float algorithmWet =
-                outputs[static_cast<size_t> (topLeftAlgorithm)] * weights.topLeft
-                + outputs[static_cast<size_t> (topRightAlgorithm)] * weights.topRight
-                + outputs[static_cast<size_t> (bottomLeftAlgorithm)] * weights.bottomLeft
-                + outputs[static_cast<size_t> (bottomRightAlgorithm)] * weights.bottomRight;
+            if (outputMode == monoMode || outputMode == midOnlyMode)
+            {
+                const float mid = 0.5f * (wetL + wetR);
 
-            const float effected =
-                safetyLimit(safeClip(dry + currentMix * (algorithmWet - dry)) * outputGain);
+                wetL = mid;
+                wetR = mid;
+            }
+            else if (outputMode == sideOnlyMode)
+            {
+                const float side = 0.5f * (wetL - wetR);
 
-            samples[i] = cleanInput + (effected - cleanInput) * (1.0f - currentBypass);
+                wetL = side;
+                wetR = -side;
+            }
+
+            // DC blocking is only applied to the processed path.
+            // Full bypass remains clean and untouched.
+            wetL = processDcBlocker(wetL, 0);
+            wetR = processDcBlocker(wetR, 1);
+
+            left[i] = safetyLimit(cleanL + (wetL - cleanL) * (1.0f - currentBypass));
+            right[i] = safetyLimit(cleanR + (wetR - cleanR) * (1.0f - currentBypass));
+
+            for (size_t ch = 2; ch < numChannels; ++ch)
+            {
+                auto* samples = block.getChannelPointer(ch);
+
+                const float clean = samples[i];
+                float wet = processWetOnly(clean);
+                wet = processDcBlocker(wet, ch);
+
+                samples[i] = safetyLimit(clean + (wet - clean) * (1.0f - currentBypass));
+            }
+        }
+        else
+        {
+            auto* samples = block.getChannelPointer(0);
+
+            const float clean = samples[i];
+            float wet = processWetOnly(clean);
+            wet = processDcBlocker(wet, 0);
+
+            samples[i] = safetyLimit(clean + (wet - clean) * (1.0f - currentBypass));
         }
     }
 }

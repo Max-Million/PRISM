@@ -28,6 +28,7 @@ public:
     void setDrive(float newDrive);
     void setMix(float newMix);
     void setBypassed(bool shouldBypass);
+    void setOutputMode(int newOutputMode);
 
     void setVectorPosition(float newX, float newY);
 
@@ -60,10 +61,21 @@ private:
         numAlgorithms
     };
 
+    enum OutputMode
+    {
+        stereoMode = 0,
+        monoMode,
+        midOnlyMode,
+        sideOnlyMode,
+        numOutputModes
+    };
+
     void updateAlgorithmParameters(float currentDrive);
     MorphWeights calculateWeights(float x, float y) const;
 
     void processAudioBlock(juce::dsp::AudioBlock<float>& block);
+
+    float processDcBlocker(float sample, size_t channel);
 
     TubeAlgorithm tube;
     HardClipAlgorithm hardClip;
@@ -83,6 +95,12 @@ private:
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> bypassAmount;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> vectorX;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> vectorY;
+
+    std::vector<float> dcBlockerInputState;
+    std::vector<float> dcBlockerOutputState;
+    float dcBlockerCoefficient = 0.995f;
+
+    int outputMode = stereoMode;
 
     int topLeftAlgorithm = tubeIndex;
     int topRightAlgorithm = hardClipIndex;

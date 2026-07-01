@@ -1,6 +1,8 @@
 #include "PluginEditor.h"
 #include "Parameters.h"
 
+#include <cmath>
+
 namespace
 {
     juce::Rectangle<float> getPadBounds(juce::Rectangle<int> bounds)
@@ -23,6 +25,14 @@ namespace
     void addAlgorithmChoicesToBox(juce::ComboBox& box)
     {
         const auto choices = getAlgorithmChoices();
+
+        for (int i = 0; i < choices.size(); ++i)
+            box.addItem(choices[i], i + 1);
+    }
+
+    void addOutputModeChoicesToBox(juce::ComboBox& box)
+    {
+        const auto choices = getOutputModeChoices();
 
         for (int i = 0; i < choices.size(); ++i)
             box.addItem(choices[i], i + 1);
@@ -225,7 +235,7 @@ MorphAudioProcessorEditor::MorphAudioProcessorEditor(MorphAudioProcessor& p)
     processor(p),
     vectorPad(p)
 {
-    setSize(820, 640);
+    setSize(820, 680);
     setResizable(true, true);
 
     titleLabel.setText("PRISM", juce::dontSendNotification);
@@ -242,6 +252,7 @@ MorphAudioProcessorEditor::MorphAudioProcessorEditor(MorphAudioProcessor& p)
     addAndMakeVisible(subtitleLabel);
 
     configureBypassButton();
+    configureOutputModeBox();
 
     configureAlgorithmBox(topLeftBox);
     configureAlgorithmBox(topRightBox);
@@ -279,6 +290,9 @@ MorphAudioProcessorEditor::MorphAudioProcessorEditor(MorphAudioProcessor& p)
 
     bypassAttachment = std::make_unique<ButtonAttachment>(
         processor.apvts, ParamID::bypass, bypassButton);
+
+    outputModeAttachment = std::make_unique<ComboBoxAttachment>(
+        processor.apvts, ParamID::outputMode, outputModeBox);
 
     topLeftAttachment = std::make_unique<ComboBoxAttachment>(
         processor.apvts, ParamID::topLeftAlgorithm, topLeftBox);
@@ -343,6 +357,32 @@ void MorphAudioProcessorEditor::configureBypassButton()
         juce::Colours::white.withAlpha(0.25f));
 
     addAndMakeVisible(bypassButton);
+}
+
+void MorphAudioProcessorEditor::configureOutputModeBox()
+{
+    outputModeLabel.setText("OUTPUT MODE", juce::dontSendNotification);
+    outputModeLabel.setJustificationType(juce::Justification::centredRight);
+    outputModeLabel.setFont(juce::FontOptions(12.0f, juce::Font::bold));
+    outputModeLabel.setColour(juce::Label::textColourId,
+        juce::Colours::white.withAlpha(0.64f));
+    addAndMakeVisible(outputModeLabel);
+
+    addOutputModeChoicesToBox(outputModeBox);
+
+    outputModeBox.setColour(juce::ComboBox::backgroundColourId,
+        juce::Colour::fromRGB(28, 28, 38));
+
+    outputModeBox.setColour(juce::ComboBox::outlineColourId,
+        juce::Colour::fromRGB(80, 70, 120));
+
+    outputModeBox.setColour(juce::ComboBox::textColourId,
+        juce::Colours::white.withAlpha(0.88f));
+
+    outputModeBox.setColour(juce::ComboBox::arrowColourId,
+        juce::Colour::fromRGB(210, 195, 255));
+
+    addAndMakeVisible(outputModeBox);
 }
 
 void MorphAudioProcessorEditor::configureAlgorithmBox(juce::ComboBox& box)
@@ -432,6 +472,13 @@ void MorphAudioProcessorEditor::resized()
 
     bounds.removeFromTop(8);
 
+    auto outputModeArea = bounds.removeFromTop(34).reduced(180, 2);
+    outputModeLabel.setBounds(outputModeArea.removeFromLeft(110));
+    outputModeArea.removeFromLeft(10);
+    outputModeBox.setBounds(outputModeArea);
+
+    bounds.removeFromTop(8);
+
     auto selectorArea = bounds.removeFromTop(64);
     const int selectorWidth = selectorArea.getWidth() / 4;
 
@@ -442,7 +489,7 @@ void MorphAudioProcessorEditor::resized()
 
     bounds.removeFromTop(8);
 
-    vectorPad.setBounds(bounds.removeFromTop(330));
+    vectorPad.setBounds(bounds.removeFromTop(320));
 
     bounds.removeFromTop(8);
 
