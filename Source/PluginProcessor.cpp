@@ -40,12 +40,18 @@ void MorphAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
 
     const auto* inputGainParam = apvts.getRawParameterValue(ParamID::inputGain);
     const auto* outputGainParam = apvts.getRawParameterValue(ParamID::outputGain);
+    const auto* driveParam = apvts.getRawParameterValue(ParamID::drive);
+    const auto* mixParam = apvts.getRawParameterValue(ParamID::mix);
 
     const float inputGainDb = inputGainParam != nullptr ? inputGainParam->load() : 0.0f;
     const float outputGainDb = outputGainParam != nullptr ? outputGainParam->load() : 0.0f;
+    const float drive = driveParam != nullptr ? driveParam->load() : 1.0f;
+    const float mix = mixParam != nullptr ? mixParam->load() : 0.0f;
 
     engine.setInputGainDb(inputGainDb);
     engine.setOutputGainDb(outputGainDb);
+    engine.setDrive(drive);
+    engine.setMix(mix);
 
     engine.process(buffer);
 }

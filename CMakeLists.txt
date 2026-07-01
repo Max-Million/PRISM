@@ -39,7 +39,10 @@ target_sources(Morph
 
         Source/DSP/MorphEngine.cpp
         Source/DSP/MorphEngine.h
+
         Source/DSP/Algorithms/DistortionAlgorithm.h
+        Source/DSP/Algorithms/TubeAlgorithm.cpp
+        Source/DSP/Algorithms/TubeAlgorithm.h
 )
 
 target_compile_definitions(Morph
