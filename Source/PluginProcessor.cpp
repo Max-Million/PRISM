@@ -10,12 +10,14 @@ MorphAudioProcessor::MorphAudioProcessor()
 {
 }
 
-void MorphAudioProcessor::prepareToPlay(double, int)
+void MorphAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
+    engine.prepare(sampleRate, samplesPerBlock, getTotalNumOutputChannels());
 }
 
 void MorphAudioProcessor::releaseResources()
 {
+    engine.reset();
 }
 
 bool MorphAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
@@ -28,7 +30,8 @@ bool MorphAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) con
             || input == juce::AudioChannelSet::stereo());
 }
 
-void MorphAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
+void MorphAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
+    juce::MidiBuffer&)
 {
     juce::ScopedNoDenormals noDenormals;
 
@@ -41,10 +44,10 @@ void MorphAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::M
     const float inputGainDb = inputGainParam != nullptr ? inputGainParam->load() : 0.0f;
     const float outputGainDb = outputGainParam != nullptr ? outputGainParam->load() : 0.0f;
 
-    const float inputGain = juce::Decibels::decibelsToGain(inputGainDb);
-    const float outputGain = juce::Decibels::decibelsToGain(outputGainDb);
+    engine.setInputGainDb(inputGainDb);
+    engine.setOutputGainDb(outputGainDb);
 
-    buffer.applyGain(inputGain * outputGain);
+    engine.process(buffer);
 }
 
 void MorphAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
