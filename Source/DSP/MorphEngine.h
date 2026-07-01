@@ -7,6 +7,9 @@
 #include "Algorithms/FoldbackAlgorithm.h"
 #include "Algorithms/FuzzAlgorithm.h"
 #include "Algorithms/DriveAlgorithm.h"
+#include "Algorithms/BitcrushAlgorithm.h"
+#include "Algorithms/WavefolderAlgorithm.h"
+#include "Algorithms/RectifierAlgorithm.h"
 
 class MorphEngine
 {
@@ -28,16 +31,33 @@ public:
 
     void setVectorPosition(float newX, float newY);
 
+    void setCornerAlgorithms(int newTopLeftAlgorithm,
+        int newTopRightAlgorithm,
+        int newBottomLeftAlgorithm,
+        int newBottomRightAlgorithm);
+
     void process(juce::AudioBuffer<float>& buffer);
 
 private:
     struct MorphWeights
     {
-        float tube = 0.0f;
-        float hardClip = 0.0f;
-        float foldback = 0.0f;
-        float fuzz = 0.0f;
-        float ampDrive = 0.0f;
+        float topLeft = 0.0f;
+        float topRight = 0.0f;
+        float bottomLeft = 0.0f;
+        float bottomRight = 0.0f;
+    };
+
+    enum AlgorithmIndex
+    {
+        tubeIndex = 0,
+        hardClipIndex,
+        foldbackIndex,
+        fuzzIndex,
+        ampDriveIndex,
+        bitcrushIndex,
+        wavefolderIndex,
+        rectifierIndex,
+        numAlgorithms
     };
 
     void updateAlgorithmParameters(float currentDrive);
@@ -50,6 +70,9 @@ private:
     FoldbackAlgorithm foldback;
     FuzzAlgorithm fuzz;
     DriveAlgorithm ampDrive;
+    BitcrushAlgorithm bitcrush;
+    WavefolderAlgorithm wavefolder;
+    RectifierAlgorithm rectifier;
 
     std::unique_ptr<juce::dsp::Oversampling<float>> oversampler;
 
@@ -60,6 +83,11 @@ private:
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> bypassAmount;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> vectorX;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> vectorY;
+
+    int topLeftAlgorithm = tubeIndex;
+    int topRightAlgorithm = hardClipIndex;
+    int bottomLeftAlgorithm = foldbackIndex;
+    int bottomRightAlgorithm = fuzzIndex;
 
     double currentSampleRate = 44100.0;
     double effectiveSampleRate = 88200.0;

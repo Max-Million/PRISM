@@ -27,6 +27,8 @@ private:
     void updateFromMousePosition(juce::Point<float> position);
     juce::Point<float> getCurrentPuckPosition() const;
 
+    juce::String getCornerAlgorithmName(const juce::String& parameterID) const;
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(VectorPadComponent)
 };
 
@@ -49,6 +51,16 @@ private:
 
     juce::ToggleButton bypassButton;
 
+    juce::ComboBox topLeftBox;
+    juce::ComboBox topRightBox;
+    juce::ComboBox bottomLeftBox;
+    juce::ComboBox bottomRightBox;
+
+    juce::Label topLeftLabel;
+    juce::Label topRightLabel;
+    juce::Label bottomLeftLabel;
+    juce::Label bottomRightLabel;
+
     juce::Slider inputSlider;
     juce::Slider driveSlider;
     juce::Slider mixSlider;
@@ -61,16 +73,29 @@ private:
 
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
     using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
+    using ComboBoxAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
 
     std::unique_ptr<SliderAttachment> inputAttachment;
     std::unique_ptr<SliderAttachment> driveAttachment;
     std::unique_ptr<SliderAttachment> mixAttachment;
     std::unique_ptr<SliderAttachment> outputAttachment;
+
     std::unique_ptr<ButtonAttachment> bypassAttachment;
+
+    std::unique_ptr<ComboBoxAttachment> topLeftAttachment;
+    std::unique_ptr<ComboBoxAttachment> topRightAttachment;
+    std::unique_ptr<ComboBoxAttachment> bottomLeftAttachment;
+    std::unique_ptr<ComboBoxAttachment> bottomRightAttachment;
 
     void configureSlider(juce::Slider& slider);
     void configureLabel(juce::Label& label, const juce::String& text);
     void configureBypassButton();
+
+    void configureAlgorithmBox(juce::ComboBox& box);
+    void configureCornerLabel(juce::Label& label, const juce::String& text);
+    void layoutCornerSelector(juce::Rectangle<int> area,
+        juce::Label& label,
+        juce::ComboBox& box);
 
     void layoutControl(juce::Rectangle<int> area,
         juce::Slider& slider,

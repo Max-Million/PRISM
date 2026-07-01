@@ -51,6 +51,12 @@ target_sources(Morph
         Source/DSP/Algorithms/FuzzAlgorithm.h
         Source/DSP/Algorithms/DriveAlgorithm.cpp
         Source/DSP/Algorithms/DriveAlgorithm.h
+        Source/DSP/Algorithms/BitcrushAlgorithm.cpp
+        Source/DSP/Algorithms/BitcrushAlgorithm.h
+        Source/DSP/Algorithms/WavefolderAlgorithm.cpp
+        Source/DSP/Algorithms/WavefolderAlgorithm.h
+        Source/DSP/Algorithms/RectifierAlgorithm.cpp
+        Source/DSP/Algorithms/RectifierAlgorithm.h
 )
 
 target_compile_definitions(Morph
