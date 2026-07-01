@@ -167,30 +167,35 @@ void MorphEngine::setCornerAlgorithms(int newTopLeftAlgorithm,
 
 void MorphEngine::updateAlgorithmParameters(float currentDrive)
 {
-    tube.setDrive(currentDrive);
+    // Balance goal:
+    // - Similar perceived loudness at the same global Drive.
+    // - Keep each algorithm character clearly different.
+    // - Avoid one corner overpowering the center blend.
 
-    hardClip.setDrive(currentDrive * 1.55f);
-    hardClip.setKnee(0.015f);
+    tube.setDrive(currentDrive * 0.95f);
 
-    foldback.setDrive(currentDrive);
-    foldback.setFoldAmount(2.0f);
+    hardClip.setDrive(currentDrive * 1.38f);
+    hardClip.setKnee(0.025f);
 
-    fuzz.setDrive(currentDrive * 1.15f);
-    fuzz.setBias(0.16f);
-    fuzz.setGate(0.012f);
+    foldback.setDrive(currentDrive * 0.88f);
+    foldback.setFoldAmount(1.80f);
 
-    ampDrive.setDrive(currentDrive * 0.95f);
-    ampDrive.setWarmth(0.62f);
+    fuzz.setDrive(currentDrive * 1.08f);
+    fuzz.setBias(0.13f);
+    fuzz.setGate(0.009f);
 
-    bitcrush.setDrive(currentDrive * 1.10f);
-    bitcrush.setCrushAmount(0.62f);
+    ampDrive.setDrive(currentDrive * 1.02f);
+    ampDrive.setWarmth(0.58f);
 
-    wavefolder.setDrive(currentDrive * 0.90f);
-    wavefolder.setFoldAmount(1.75f);
-    wavefolder.setSmoothness(0.78f);
+    bitcrush.setDrive(currentDrive * 0.92f);
+    bitcrush.setCrushAmount(0.56f);
 
-    rectifier.setDrive(currentDrive * 0.95f);
-    rectifier.setRectifyAmount(0.72f);
+    wavefolder.setDrive(currentDrive * 0.86f);
+    wavefolder.setFoldAmount(1.55f);
+    wavefolder.setSmoothness(0.82f);
+
+    rectifier.setDrive(currentDrive * 0.88f);
+    rectifier.setRectifyAmount(0.64f);
 }
 
 MorphEngine::MorphWeights MorphEngine::calculateWeights(float x, float y) const
@@ -254,14 +259,14 @@ void MorphEngine::processAudioBlock(juce::dsp::AudioBlock<float>& block)
 
                 const std::array<float, numAlgorithms> outputs
                 { {
-                    tube.processSample(dry) * 0.72f,
-                    hardClip.processSample(dry) * 0.60f,
-                    foldback.processSample(dry) * 0.34f,
-                    fuzz.processSample(dry) * 0.42f,
-                    ampDrive.processSample(dry) * 0.74f,
-                    bitcrush.processSample(dry) * 0.46f,
-                    wavefolder.processSample(dry) * 0.48f,
-                    rectifier.processSample(dry) * 0.44f
+                    tube.processSample(dry) * 0.70f,
+                    hardClip.processSample(dry) * 0.56f,
+                    foldback.processSample(dry) * 0.36f,
+                    fuzz.processSample(dry) * 0.44f,
+                    ampDrive.processSample(dry) * 0.70f,
+                    bitcrush.processSample(dry) * 0.50f,
+                    wavefolder.processSample(dry) * 0.52f,
+                    rectifier.processSample(dry) * 0.48f
                 } };
 
                 const float algorithmWet =
@@ -299,8 +304,6 @@ void MorphEngine::processAudioBlock(juce::dsp::AudioBlock<float>& block)
                 wetR = -side;
             }
 
-            // DC blocking is only applied to the processed path.
-            // Full bypass remains clean and untouched.
             wetL = processDcBlocker(wetL, 0);
             wetR = processDcBlocker(wetR, 1);
 
