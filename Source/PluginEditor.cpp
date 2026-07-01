@@ -5,6 +5,106 @@
 
 namespace
 {
+    struct FactoryPreset
+    {
+        juce::String name;
+
+        float inputGainDb = 0.0f;
+        float outputGainDb = -6.0f;
+        float drive = 6.0f;
+        float mixPercent = 100.0f;
+        float vectorX = 0.5f;
+        float vectorY = 0.5f;
+
+        int outputMode = 0;
+
+        int topLeftAlgorithm = 0;
+        int topRightAlgorithm = 1;
+        int bottomLeftAlgorithm = 2;
+        int bottomRightAlgorithm = 3;
+    };
+
+    const std::vector<FactoryPreset>& getFactoryPresets()
+    {
+        static const std::vector<FactoryPreset> presets
+        {
+            {
+                "Init Prism",
+                0.0f, -6.0f, 6.0f, 100.0f, 0.50f, 0.50f,
+                0,
+                0, 1, 2, 3
+            },
+            {
+                "Warm Tube Drive",
+                -3.0f, -5.0f, 5.5f, 85.0f, 0.25f, 0.25f,
+                0,
+                0, 0, 4, 7
+            },
+            {
+                "Hard Clip Bite",
+                -8.0f, -9.0f, 10.5f, 100.0f, 0.78f, 0.18f,
+                0,
+                0, 1, 4, 6
+            },
+            {
+                "Foldback Motion",
+                -8.0f, -10.0f, 12.0f, 92.0f, 0.30f, 0.74f,
+                0,
+                2, 6, 0, 4
+            },
+            {
+                "Fuzz Wall",
+                -10.0f, -12.0f, 14.0f, 100.0f, 0.72f, 0.80f,
+                0,
+                3, 1, 7, 3
+            },
+            {
+                "Crushed Sparks",
+                -8.0f, -10.0f, 11.0f, 88.0f, 0.54f, 0.62f,
+                0,
+                5, 1, 6, 2
+            },
+            {
+                "Wavefold Glass",
+                -7.0f, -9.0f, 9.5f, 82.0f, 0.62f, 0.42f,
+                0,
+                6, 0, 2, 4
+            },
+            {
+                "Rectified Growl",
+                -9.0f, -11.0f, 13.0f, 95.0f, 0.42f, 0.82f,
+                0,
+                7, 3, 4, 2
+            },
+            {
+                "Parallel Grit",
+                -6.0f, -8.0f, 8.0f, 55.0f, 0.50f, 0.50f,
+                0,
+                0, 1, 5, 3
+            },
+            {
+                "Side Texture",
+                -7.0f, -10.0f, 9.0f, 78.0f, 0.66f, 0.48f,
+                3,
+                6, 5, 2, 7
+            }
+        };
+
+        return presets;
+    }
+
+    void setParameterValue(MorphAudioProcessor& processor,
+        const juce::String& parameterID,
+        float newValue)
+    {
+        if (auto* parameter = processor.apvts.getParameter(parameterID))
+        {
+            parameter->beginChangeGesture();
+            parameter->setValueNotifyingHost(parameter->convertTo0to1(newValue));
+            parameter->endChangeGesture();
+        }
+    }
+
     juce::Rectangle<float> getPadBounds(juce::Rectangle<int> bounds)
     {
         return bounds.reduced(22).toFloat();
@@ -36,6 +136,14 @@ namespace
 
         for (int i = 0; i < choices.size(); ++i)
             box.addItem(choices[i], i + 1);
+    }
+
+    void addFactoryPresetsToBox(juce::ComboBox& box)
+    {
+        const auto& presets = getFactoryPresets();
+
+        for (int i = 0; i < static_cast<int>(presets.size()); ++i)
+            box.addItem(presets[static_cast<size_t>(i)].name, i + 1);
     }
 
     void drawCornerNode(juce::Graphics& g,
@@ -235,7 +343,7 @@ MorphAudioProcessorEditor::MorphAudioProcessorEditor(MorphAudioProcessor& p)
     processor(p),
     vectorPad(p)
 {
-    setSize(820, 680);
+    setSize(820, 700);
     setResizable(true, true);
 
     titleLabel.setText("PRISM", juce::dontSendNotification);
@@ -252,6 +360,7 @@ MorphAudioProcessorEditor::MorphAudioProcessorEditor(MorphAudioProcessor& p)
     addAndMakeVisible(subtitleLabel);
 
     configureBypassButton();
+    configurePresetBox();
     configureOutputModeBox();
 
     configureAlgorithmBox(topLeftBox);
@@ -359,10 +468,46 @@ void MorphAudioProcessorEditor::configureBypassButton()
     addAndMakeVisible(bypassButton);
 }
 
+void MorphAudioProcessorEditor::configurePresetBox()
+{
+    presetLabel.setText("FACTORY PRESET", juce::dontSendNotification);
+    presetLabel.setJustificationType(juce::Justification::centred);
+    presetLabel.setFont(juce::FontOptions(12.0f, juce::Font::bold));
+    presetLabel.setColour(juce::Label::textColourId,
+        juce::Colours::white.withAlpha(0.64f));
+    addAndMakeVisible(presetLabel);
+
+    addFactoryPresetsToBox(presetBox);
+
+    presetBox.setTextWhenNothingSelected("Select preset");
+
+    presetBox.setColour(juce::ComboBox::backgroundColourId,
+        juce::Colour::fromRGB(28, 28, 38));
+
+    presetBox.setColour(juce::ComboBox::outlineColourId,
+        juce::Colour::fromRGB(80, 70, 120));
+
+    presetBox.setColour(juce::ComboBox::textColourId,
+        juce::Colours::white.withAlpha(0.88f));
+
+    presetBox.setColour(juce::ComboBox::arrowColourId,
+        juce::Colour::fromRGB(210, 195, 255));
+
+    presetBox.onChange = [this]
+        {
+            const int presetIndex = presetBox.getSelectedId() - 1;
+
+            if (presetIndex >= 0)
+                applyFactoryPreset(presetIndex);
+        };
+
+    addAndMakeVisible(presetBox);
+}
+
 void MorphAudioProcessorEditor::configureOutputModeBox()
 {
     outputModeLabel.setText("OUTPUT MODE", juce::dontSendNotification);
-    outputModeLabel.setJustificationType(juce::Justification::centredRight);
+    outputModeLabel.setJustificationType(juce::Justification::centred);
     outputModeLabel.setFont(juce::FontOptions(12.0f, juce::Font::bold));
     outputModeLabel.setColour(juce::Label::textColourId,
         juce::Colours::white.withAlpha(0.64f));
@@ -421,6 +566,52 @@ void MorphAudioProcessorEditor::configureCornerLabel(juce::Label& label,
     addAndMakeVisible(label);
 }
 
+void MorphAudioProcessorEditor::applyFactoryPreset(int presetIndex)
+{
+    const auto& presets = getFactoryPresets();
+
+    if (!juce::isPositiveAndBelow(presetIndex, static_cast<int> (presets.size())))
+        return;
+
+    const auto& preset = presets[static_cast<size_t> (presetIndex)];
+
+    setParameterValue(processor, ParamID::bypass, 0.0f);
+
+    setParameterValue(processor, ParamID::inputGain, preset.inputGainDb);
+    setParameterValue(processor, ParamID::outputGain, preset.outputGainDb);
+    setParameterValue(processor, ParamID::drive, preset.drive);
+    setParameterValue(processor, ParamID::mix, preset.mixPercent);
+
+    setParameterValue(processor, ParamID::vectorX, preset.vectorX);
+    setParameterValue(processor, ParamID::vectorY, preset.vectorY);
+
+    setParameterValue(processor, ParamID::outputMode, static_cast<float> (preset.outputMode));
+
+    setParameterValue(processor, ParamID::topLeftAlgorithm,
+        static_cast<float> (preset.topLeftAlgorithm));
+
+    setParameterValue(processor, ParamID::topRightAlgorithm,
+        static_cast<float> (preset.topRightAlgorithm));
+
+    setParameterValue(processor, ParamID::bottomLeftAlgorithm,
+        static_cast<float> (preset.bottomLeftAlgorithm));
+
+    setParameterValue(processor, ParamID::bottomRightAlgorithm,
+        static_cast<float> (preset.bottomRightAlgorithm));
+
+    vectorPad.repaint();
+}
+
+void MorphAudioProcessorEditor::layoutSmallSelector(juce::Rectangle<int> area,
+    juce::Label& label,
+    juce::ComboBox& box)
+{
+    area = area.reduced(6);
+
+    label.setBounds(area.removeFromTop(20));
+    box.setBounds(area.removeFromTop(28));
+}
+
 void MorphAudioProcessorEditor::layoutCornerSelector(juce::Rectangle<int> area,
     juce::Label& label,
     juce::ComboBox& box)
@@ -472,10 +663,16 @@ void MorphAudioProcessorEditor::resized()
 
     bounds.removeFromTop(8);
 
-    auto outputModeArea = bounds.removeFromTop(34).reduced(180, 2);
-    outputModeLabel.setBounds(outputModeArea.removeFromLeft(110));
-    outputModeArea.removeFromLeft(10);
-    outputModeBox.setBounds(outputModeArea);
+    auto presetOutputArea = bounds.removeFromTop(64);
+    const int presetOutputWidth = presetOutputArea.getWidth() / 2;
+
+    layoutSmallSelector(presetOutputArea.removeFromLeft(presetOutputWidth),
+        presetLabel,
+        presetBox);
+
+    layoutSmallSelector(presetOutputArea,
+        outputModeLabel,
+        outputModeBox);
 
     bounds.removeFromTop(8);
 
