@@ -50,6 +50,7 @@ private:
     juce::Label subtitleLabel;
 
     juce::ToggleButton bypassButton;
+    juce::TextButton randomizeButton;
 
     juce::ComboBox presetBox;
     juce::Label presetLabel;
@@ -101,6 +102,7 @@ private:
     void configureSlider(juce::Slider& slider);
     void configureLabel(juce::Label& label, const juce::String& text);
     void configureBypassButton();
+    void configureRandomizeButton();
 
     void configurePresetBox();
     void configureOutputModeBox();
@@ -108,6 +110,7 @@ private:
     void configureCornerLabel(juce::Label& label, const juce::String& text);
 
     void applyFactoryPreset(int presetIndex);
+    void applyRandomize();
 
     void layoutSmallSelector(juce::Rectangle<int> area,
         juce::Label& label,

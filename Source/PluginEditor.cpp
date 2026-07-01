@@ -1,6 +1,7 @@
 #include "PluginEditor.h"
 #include "Parameters.h"
 
+#include <array>
 #include <cmath>
 
 namespace
@@ -104,6 +105,11 @@ namespace
             parameter->setValueNotifyingHost(parameter->convertTo0to1(newValue));
             parameter->endChangeGesture();
         }
+    }
+
+    float getRandomFloat(juce::Random& random, float minimum, float maximum)
+    {
+        return minimum + random.nextFloat() * (maximum - minimum);
     }
 
     juce::Rectangle<float> getPadBounds(juce::Rectangle<int> bounds)
@@ -361,6 +367,7 @@ MorphAudioProcessorEditor::MorphAudioProcessorEditor(MorphAudioProcessor& p)
     addAndMakeVisible(subtitleLabel);
 
     configureBypassButton();
+    configureRandomizeButton();
     configurePresetBox();
     configureOutputModeBox();
 
@@ -472,6 +479,31 @@ void MorphAudioProcessorEditor::configureBypassButton()
         juce::Colours::white.withAlpha(0.25f));
 
     addAndMakeVisible(bypassButton);
+}
+
+void MorphAudioProcessorEditor::configureRandomizeButton()
+{
+    randomizeButton.setButtonText("RANDOMIZE");
+
+    randomizeButton.setColour(juce::TextButton::buttonColourId,
+        juce::Colour::fromRGB(42, 35, 70));
+
+    randomizeButton.setColour(juce::TextButton::buttonOnColourId,
+        juce::Colour::fromRGB(70, 55, 115));
+
+    randomizeButton.setColour(juce::TextButton::textColourOffId,
+        juce::Colours::white.withAlpha(0.82f));
+
+    randomizeButton.setColour(juce::TextButton::textColourOnId,
+        juce::Colours::white);
+
+    randomizeButton.onClick = [this]
+        {
+            presetBox.setSelectedId(0, juce::dontSendNotification);
+            applyRandomize();
+        };
+
+    addAndMakeVisible(randomizeButton);
 }
 
 void MorphAudioProcessorEditor::configurePresetBox()
@@ -609,6 +641,57 @@ void MorphAudioProcessorEditor::applyFactoryPreset(int presetIndex)
     vectorPad.repaint();
 }
 
+void MorphAudioProcessorEditor::applyRandomize()
+{
+    auto& random = juce::Random::getSystemRandom();
+
+    const float randomizedDrive = getRandomFloat(random, 4.0f, 16.5f);
+    const float randomizedTone = getRandomFloat(random, 24.0f, 78.0f);
+    const float randomizedMix = getRandomFloat(random, 55.0f, 100.0f);
+    const float randomizedVectorX = getRandomFloat(random, 0.08f, 0.92f);
+    const float randomizedVectorY = getRandomFloat(random, 0.08f, 0.92f);
+
+    std::vector<int> algorithmPool;
+
+    const int algorithmCount = getAlgorithmChoices().size();
+
+    for (int i = 0; i < algorithmCount; ++i)
+        algorithmPool.push_back(i);
+
+    std::array<int, 4> randomizedAlgorithms{};
+
+    for (auto& algorithm : randomizedAlgorithms)
+    {
+        const int poolIndex = random.nextInt(static_cast<int>(algorithmPool.size()));
+
+        algorithm = algorithmPool[static_cast<size_t>(poolIndex)];
+        algorithmPool.erase(algorithmPool.begin() + poolIndex);
+    }
+
+    // Randomize only creative parameters.
+    // Input, Output, Output Mode, and Bypass are intentionally left untouched.
+    setParameterValue(processor, ParamID::drive, randomizedDrive);
+    setParameterValue(processor, ParamID::tone, randomizedTone);
+    setParameterValue(processor, ParamID::mix, randomizedMix);
+
+    setParameterValue(processor, ParamID::vectorX, randomizedVectorX);
+    setParameterValue(processor, ParamID::vectorY, randomizedVectorY);
+
+    setParameterValue(processor, ParamID::topLeftAlgorithm,
+        static_cast<float> (randomizedAlgorithms[0]));
+
+    setParameterValue(processor, ParamID::topRightAlgorithm,
+        static_cast<float> (randomizedAlgorithms[1]));
+
+    setParameterValue(processor, ParamID::bottomLeftAlgorithm,
+        static_cast<float> (randomizedAlgorithms[2]));
+
+    setParameterValue(processor, ParamID::bottomRightAlgorithm,
+        static_cast<float> (randomizedAlgorithms[3]));
+
+    vectorPad.repaint();
+}
+
 void MorphAudioProcessorEditor::layoutSmallSelector(juce::Rectangle<int> area,
     juce::Label& label,
     juce::ComboBox& box)
@@ -663,6 +746,7 @@ void MorphAudioProcessorEditor::resized()
 
     auto header = bounds.removeFromTop(58);
 
+    randomizeButton.setBounds(header.removeFromLeft(122).withSizeKeepingCentre(112, 28));
     bypassButton.setBounds(header.removeFromRight(104).withSizeKeepingCentre(94, 28));
 
     titleLabel.setBounds(header.removeFromTop(38));
