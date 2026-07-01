@@ -24,6 +24,7 @@ public:
 
     void setDrive(float newDrive);
     void setMix(float newMix);
+    void setBypassed(bool shouldBypass);
 
     void setVectorPosition(float newX, float newY);
 
@@ -56,6 +57,7 @@ private:
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> outputGainDb;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> drive;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> mix;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> bypassAmount;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> vectorX;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> vectorY;
 

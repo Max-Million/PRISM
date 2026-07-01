@@ -181,6 +181,8 @@ MorphAudioProcessorEditor::MorphAudioProcessorEditor(MorphAudioProcessor& p)
         juce::Colours::white.withAlpha(0.55f));
     addAndMakeVisible(subtitleLabel);
 
+    configureBypassButton();
+
     addAndMakeVisible(vectorPad);
 
     configureSlider(inputSlider);
@@ -204,6 +206,9 @@ MorphAudioProcessorEditor::MorphAudioProcessorEditor(MorphAudioProcessor& p)
 
     outputAttachment = std::make_unique<SliderAttachment>(
         processor.apvts, ParamID::outputGain, outputSlider);
+
+    bypassAttachment = std::make_unique<ButtonAttachment>(
+        processor.apvts, ParamID::bypass, bypassButton);
 }
 
 void MorphAudioProcessorEditor::configureSlider(juce::Slider& slider)
@@ -241,6 +246,23 @@ void MorphAudioProcessorEditor::configureLabel(juce::Label& label,
     addAndMakeVisible(label);
 }
 
+void MorphAudioProcessorEditor::configureBypassButton()
+{
+    bypassButton.setButtonText("BYPASS");
+    bypassButton.setClickingTogglesState(true);
+
+    bypassButton.setColour(juce::ToggleButton::textColourId,
+        juce::Colours::white.withAlpha(0.78f));
+
+    bypassButton.setColour(juce::ToggleButton::tickColourId,
+        juce::Colour::fromRGB(210, 195, 255));
+
+    bypassButton.setColour(juce::ToggleButton::tickDisabledColourId,
+        juce::Colours::white.withAlpha(0.25f));
+
+    addAndMakeVisible(bypassButton);
+}
+
 void MorphAudioProcessorEditor::layoutControl(juce::Rectangle<int> area,
     juce::Slider& slider,
     juce::Label& label)
@@ -273,8 +295,12 @@ void MorphAudioProcessorEditor::resized()
 {
     auto bounds = getLocalBounds().reduced(24);
 
-    titleLabel.setBounds(bounds.removeFromTop(38));
-    subtitleLabel.setBounds(bounds.removeFromTop(20));
+    auto header = bounds.removeFromTop(58);
+
+    bypassButton.setBounds(header.removeFromRight(104).withSizeKeepingCentre(94, 28));
+
+    titleLabel.setBounds(header.removeFromTop(38));
+    subtitleLabel.setBounds(header.removeFromTop(20));
 
     bounds.removeFromTop(8);
 

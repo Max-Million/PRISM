@@ -39,6 +39,7 @@ void MorphAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     for (int ch = getTotalNumInputChannels(); ch < getTotalNumOutputChannels(); ++ch)
         buffer.clear(ch, 0, buffer.getNumSamples());
 
+    const auto* bypassParam = apvts.getRawParameterValue(ParamID::bypass);
     const auto* inputGainParam = apvts.getRawParameterValue(ParamID::inputGain);
     const auto* outputGainParam = apvts.getRawParameterValue(ParamID::outputGain);
     const auto* driveParam = apvts.getRawParameterValue(ParamID::drive);
@@ -46,6 +47,7 @@ void MorphAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     const auto* vectorXParam = apvts.getRawParameterValue(ParamID::vectorX);
     const auto* vectorYParam = apvts.getRawParameterValue(ParamID::vectorY);
 
+    const bool bypassed = bypassParam != nullptr && bypassParam->load() >= 0.5f;
     const float inputGainDb = inputGainParam != nullptr ? inputGainParam->load() : 0.0f;
     const float outputGainDb = outputGainParam != nullptr ? outputGainParam->load() : -6.0f;
     const float drive = driveParam != nullptr ? driveParam->load() : 6.0f;
@@ -56,6 +58,7 @@ void MorphAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     const float vectorX = vectorXParam != nullptr ? vectorXParam->load() : 0.5f;
     const float vectorY = vectorYParam != nullptr ? vectorYParam->load() : 0.5f;
 
+    engine.setBypassed(bypassed);
     engine.setInputGainDb(inputGainDb);
     engine.setOutputGainDb(outputGainDb);
     engine.setDrive(drive);

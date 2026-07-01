@@ -8,6 +8,25 @@ namespace
     {
         return juce::jlimit(-1.0f, 1.0f, x);
     }
+
+    float safetyLimit(float x)
+    {
+        constexpr float ceiling = 0.98f;
+
+        const float absX = std::abs(x);
+
+        if (absX <= ceiling)
+            return x;
+
+        const float sign = x >= 0.0f ? 1.0f : -1.0f;
+        const float excess = absX - ceiling;
+        const float remainingHeadroom = 1.0f - ceiling;
+
+        const float limited = ceiling
+            + remainingHeadroom * std::tanh(excess / remainingHeadroom);
+
+        return sign * juce::jlimit(ceiling, 1.0f, limited);
+    }
 }
 
 void MorphEngine::prepare(double sampleRate, int samplesPerBlock, int numChannels)
@@ -38,6 +57,7 @@ void MorphEngine::prepare(double sampleRate, int samplesPerBlock, int numChannel
     outputGainDb.reset(effectiveSampleRate, 0.03);
     drive.reset(effectiveSampleRate, 0.06);
     mix.reset(effectiveSampleRate, 0.03);
+    bypassAmount.reset(effectiveSampleRate, 0.02);
 
     vectorX.reset(effectiveSampleRate, 0.12);
     vectorY.reset(effectiveSampleRate, 0.12);
@@ -46,6 +66,7 @@ void MorphEngine::prepare(double sampleRate, int samplesPerBlock, int numChannel
     outputGainDb.setCurrentAndTargetValue(-6.0f);
     drive.setCurrentAndTargetValue(6.0f);
     mix.setCurrentAndTargetValue(1.0f);
+    bypassAmount.setCurrentAndTargetValue(0.0f);
     vectorX.setCurrentAndTargetValue(0.5f);
     vectorY.setCurrentAndTargetValue(0.5f);
 
@@ -67,6 +88,7 @@ void MorphEngine::reset()
     outputGainDb.setCurrentAndTargetValue(outputGainDb.getTargetValue());
     drive.setCurrentAndTargetValue(drive.getTargetValue());
     mix.setCurrentAndTargetValue(mix.getTargetValue());
+    bypassAmount.setCurrentAndTargetValue(bypassAmount.getTargetValue());
     vectorX.setCurrentAndTargetValue(vectorX.getTargetValue());
     vectorY.setCurrentAndTargetValue(vectorY.getTargetValue());
 }
@@ -99,6 +121,11 @@ void MorphEngine::setMix(float newMix)
     mix.setTargetValue(juce::jlimit(0.0f, 1.0f, newMix));
 }
 
+void MorphEngine::setBypassed(bool shouldBypass)
+{
+    bypassAmount.setTargetValue(shouldBypass ? 1.0f : 0.0f);
+}
+
 void MorphEngine::setVectorPosition(float newX, float newY)
 {
     vectorX.setTargetValue(juce::jlimit(0.0f, 1.0f, newX));
@@ -108,16 +135,22 @@ void MorphEngine::setVectorPosition(float newX, float newY)
 void MorphEngine::updateAlgorithmParameters(float currentDrive)
 {
     tube.setDrive(currentDrive);
-    hardClip.setDrive(currentDrive);
-    foldback.setDrive(currentDrive);
-    fuzz.setDrive(currentDrive * 1.15f);
-    ampDrive.setDrive(currentDrive);
 
-    hardClip.setKnee(0.08f);
+    // Top-right: hard, squared-off clipping.
+    hardClip.setDrive(currentDrive * 1.55f);
+    hardClip.setKnee(0.015f);
+
+    foldback.setDrive(currentDrive);
     foldback.setFoldAmount(2.0f);
+
+    fuzz.setDrive(currentDrive * 1.15f);
     fuzz.setBias(0.16f);
     fuzz.setGate(0.012f);
-    ampDrive.setWarmth(0.75f);
+
+    // Center: amp-like drive with grit and edge.
+    // Smoother than Hard Clip, but not overly soft.
+    ampDrive.setDrive(currentDrive * 0.95f);
+    ampDrive.setWarmth(0.62f);
 }
 
 MorphEngine::MorphWeights MorphEngine::calculateWeights(float x, float y) const
@@ -127,22 +160,33 @@ MorphEngine::MorphWeights MorphEngine::calculateWeights(float x, float y) const
 
     MorphWeights weights;
 
-    weights.tube = (1.0f - x) * (1.0f - y);
-    weights.hardClip = x * (1.0f - y);
-    weights.foldback = (1.0f - x) * y;
-    weights.fuzz = x * y;
+    const float cornerTube = (1.0f - x) * (1.0f - y);
+    const float cornerHardClip = x * (1.0f - y);
+    const float cornerFoldback = (1.0f - x) * y;
+    const float cornerFuzz = x * y;
 
     const float dx = x - 0.5f;
     const float dy = y - 0.5f;
     const float distanceFromCenter = std::sqrt(dx * dx + dy * dy);
     const float maxDistance = 0.70710678f;
 
-    const float centerAmount = juce::jlimit(
+    const float centerRaw = juce::jlimit(
         0.0f,
         1.0f,
         1.0f - distanceFromCenter / maxDistance);
 
-    weights.ampDrive = centerAmount * centerAmount * 1.35f;
+    // Focus the center node so Amp Drive has a clear identity.
+    const float centerAmount = centerRaw * centerRaw;
+
+    // Pull corner algorithms down near the center.
+    const float cornerScale = 1.0f - centerAmount * 0.90f;
+
+    weights.tube = cornerTube * cornerScale;
+    weights.hardClip = cornerHardClip * cornerScale;
+    weights.foldback = cornerFoldback * cornerScale;
+    weights.fuzz = cornerFuzz * cornerScale;
+
+    weights.ampDrive = centerAmount * 4.0f;
 
     const float total = weights.tube
         + weights.hardClip
@@ -171,6 +215,7 @@ void MorphEngine::processAudioBlock(juce::dsp::AudioBlock<float>& block)
         const float currentOutputGainDb = outputGainDb.getNextValue();
         const float currentDrive = drive.getNextValue();
         const float currentMix = mix.getNextValue();
+        const float currentBypass = bypassAmount.getNextValue();
         const float currentVectorX = vectorX.getNextValue();
         const float currentVectorY = vectorY.getNextValue();
 
@@ -185,13 +230,14 @@ void MorphEngine::processAudioBlock(juce::dsp::AudioBlock<float>& block)
         {
             auto* samples = block.getChannelPointer(ch);
 
-            const float dry = samples[i] * inputGain;
+            const float cleanInput = samples[i];
+            const float dry = cleanInput * inputGain;
 
             const float tubeOut = tube.processSample(dry) * 0.78f;
-            const float clipOut = hardClip.processSample(dry) * 0.52f;
+            const float clipOut = hardClip.processSample(dry) * 0.62f;
             const float foldOut = foldback.processSample(dry) * 0.34f;
             const float fuzzOut = fuzz.processSample(dry) * 0.42f;
-            const float driveOut = ampDrive.processSample(dry) * 0.64f;
+            const float driveOut = ampDrive.processSample(dry) * 0.76f;
 
             const float algorithmWet =
                 tubeOut * weights.tube
@@ -200,7 +246,10 @@ void MorphEngine::processAudioBlock(juce::dsp::AudioBlock<float>& block)
                 + fuzzOut * weights.fuzz
                 + driveOut * weights.ampDrive;
 
-            samples[i] = safeClip(dry + currentMix * (algorithmWet - dry)) * outputGain;
+            const float effected =
+                safetyLimit(safeClip(dry + currentMix * (algorithmWet - dry)) * outputGain);
+
+            samples[i] = cleanInput + (effected - cleanInput) * (1.0f - currentBypass);
         }
     }
 }
